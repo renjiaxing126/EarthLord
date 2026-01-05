@@ -23,8 +23,8 @@ struct RootView: View {
                     .transition(.opacity)
             } else {
                 // 根据认证状态显示不同界面
-                if authManager.isAuthenticated {
-                    // 已完全认证 → 主界面
+                if authManager.isAuthenticated && !authManager.needsPasswordSetup {
+                    // 已完全认证且不需要设置密码 → 主界面
                     MainTabView()
                         .transition(.opacity)
                         .environmentObject(authManager)
@@ -38,6 +38,7 @@ struct RootView: View {
         }
         .animation(.easeInOut(duration: 0.3), value: splashFinished)
         .animation(.easeInOut(duration: 0.3), value: authManager.isAuthenticated)
+        .animation(.easeInOut(duration: 0.3), value: authManager.needsPasswordSetup)
     }
 }
 
