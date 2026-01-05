@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Combine
 import Supabase
 
 /// 用户信息模型
@@ -120,7 +121,6 @@ class AuthManager: ObservableObject {
             await fetchCurrentUser()
 
             print("✅ 验证码验证成功，用户已登录（待设置密码）")
-            print("📝 Session: \(session.accessToken)")
 
         } catch {
             // 处理错误
@@ -183,7 +183,6 @@ class AuthManager: ObservableObject {
             needsPasswordSetup = false
 
             print("✅ 登录成功")
-            print("📝 Session: \(session.accessToken)")
 
             // 获取用户信息
             await fetchCurrentUser()
@@ -249,7 +248,6 @@ class AuthManager: ObservableObject {
             await fetchCurrentUser()
 
             print("✅ 重置验证码验证成功（待设置新密码）")
-            print("📝 Session: \(session.accessToken)")
 
         } catch {
             // 处理错误
@@ -344,25 +342,18 @@ class AuthManager: ObservableObject {
 
         do {
             // 获取当前会话
-            let session = try await supabase.auth.session
+            let _ = try await supabase.auth.session
 
-            if session.accessToken.isEmpty {
-                // 没有有效会话
-                isAuthenticated = false
-                currentUser = nil
-                print("ℹ️ 未检测到有效会话")
-            } else {
-                // 有有效会话
-                await fetchCurrentUser()
+            // 有有效会话
+            await fetchCurrentUser()
 
-                // 检查用户是否已设置密码
-                // 注意：这里需要根据实际情况判断
-                // 如果用户是通过邮箱密码登录的，则已完成所有步骤
-                isAuthenticated = true
-                needsPasswordSetup = false
+            // 检查用户是否已设置密码
+            // 注意：这里需要根据实际情况判断
+            // 如果用户是通过邮箱密码登录的，则已完成所有步骤
+            isAuthenticated = true
+            needsPasswordSetup = false
 
-                print("✅ 检测到有效会话，自动登录")
-            }
+            print("✅ 检测到有效会话，自动登录")
 
         } catch {
             // 没有会话或会话过期
