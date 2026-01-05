@@ -8,12 +8,6 @@
 import SwiftUI
 import Supabase
 
-// 在 View 外部初始化 Supabase 客户端
-let supabase = SupabaseClient(
-    supabaseURL: URL(string: "https://fbisbjxlwucmxgunkcxh.supabase.co")!,
-    supabaseKey: "sb_publishable_NwkBsPp_auo1oeV_E-ENWg_8BQw_PNi"
-)
-
 struct SupabaseTestView: View {
     @State private var isConnected: Bool? = nil
     @State private var debugLog: String = "点击按钮开始测试..."
@@ -91,7 +85,7 @@ struct SupabaseTestView: View {
             do {
                 // 故意查询一个不存在的表来测试连接
                 debugLog += "发送请求: 查询 non_existent_table...\n"
-                let _: [String] = try await supabase
+                let _: [String] = try await SupabaseService.shared
                     .from("non_existent_table")
                     .select()
                     .execute()
