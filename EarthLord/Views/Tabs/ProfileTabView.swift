@@ -6,9 +6,13 @@
 //
 
 import SwiftUI
+import Supabase
 
 struct ProfileTabView: View {
     @EnvironmentObject var authManager: AuthManager
+
+    /// 显示登出确认对话框
+    @State private var showLogoutConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -49,13 +53,11 @@ struct ProfileTabView: View {
 
                 // 登出按钮
                 Button {
-                    Task {
-                        await authManager.signOut()
-                    }
+                    showLogoutConfirmation = true
                 } label: {
                     HStack {
                         Image(systemName: "rectangle.portrait.and.arrow.right")
-                        Text("登出")
+                        Text("退出登录")
                             .fontWeight(.semibold)
                     }
                     .foregroundColor(.red)
@@ -66,13 +68,25 @@ struct ProfileTabView: View {
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 40)
+                .disabled(authManager.isLoading)
 
                 // 加载指示器
                 if authManager.isLoading {
                     ProgressView()
+                        .padding(.bottom, 20)
                 }
             }
             .navigationTitle("个人")
+            .alert("退出登录", isPresented: $showLogoutConfirmation) {
+                Button("取消", role: .cancel) {}
+                Button("退出", role: .destructive) {
+                    Task {
+                        await authManager.signOut()
+                    }
+                }
+            } message: {
+                Text("确定要退出登录吗？")
+            }
         }
     }
 }

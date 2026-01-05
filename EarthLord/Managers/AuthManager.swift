@@ -114,7 +114,7 @@ class AuthManager: ObservableObject {
 
         do {
             // 验证 OTP（注册类型使用 .email）
-            let session = try await supabase.auth.verifyOTP(
+            _ = try await supabase.auth.verifyOTP(
                 email: email,
                 token: code,
                 type: .email
@@ -181,7 +181,7 @@ class AuthManager: ObservableObject {
 
         do {
             // 使用邮箱和密码登录
-            let session = try await supabase.auth.signIn(
+            _ = try await supabase.auth.signIn(
                 email: email,
                 password: password
             )
@@ -241,7 +241,7 @@ class AuthManager: ObservableObject {
 
         do {
             // ⚠️ 注意：密码重置使用 .recovery 类型，不是 .email
-            let session = try await supabase.auth.verifyOTP(
+            _ = try await supabase.auth.verifyOTP(
                 email: email,
                 token: code,
                 type: .recovery
@@ -325,20 +325,22 @@ class AuthManager: ObservableObject {
             // 调用 Supabase 登出
             try await supabase.auth.signOut()
 
-            // 重置所有状态
-            isAuthenticated = false
-            needsPasswordSetup = false
-            currentUser = nil
-            otpSent = false
-            otpVerified = false
-
             print("✅ 已登出")
 
         } catch {
-            // 处理错误
+            // 处理错误（即使出错也要清理本地状态）
             errorMessage = "登出失败: \(error.localizedDescription)"
             print("❌ 登出失败: \(error)")
         }
+
+        // 无论是否成功，都清理本地状态
+        // 认证状态监听器会收到 .signedOut 事件并自动清理
+        // 但为了确保，这里也手动清理
+        isAuthenticated = false
+        needsPasswordSetup = false
+        currentUser = nil
+        otpSent = false
+        otpVerified = false
 
         isLoading = false
     }
