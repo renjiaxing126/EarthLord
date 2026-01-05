@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct AuthView: View {
-    @StateObject private var authManager = AuthManager(supabase: SupabaseService.shared)
+    @EnvironmentObject var authManager: AuthManager
 
     // Tab 选择
     @State private var selectedTab: AuthTab = .login

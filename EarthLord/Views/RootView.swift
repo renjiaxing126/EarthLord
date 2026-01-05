@@ -32,6 +32,7 @@ struct RootView: View {
                     // 未认证或需要设置密码 → 认证页面
                     AuthView()
                         .transition(.opacity)
+                        .environmentObject(authManager)
                 }
             }
         }

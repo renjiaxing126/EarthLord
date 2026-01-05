@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		A715703D2F0B735A00EB174F /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = A715703C2F0B735A00EB174F /* Supabase */; };
+		A715704B2F0BBC2900EB174F /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = A715704A2F0BBC2900EB174F /* GoogleSignIn */; };
+		A715704D2F0BBC2900EB174F /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = A715704C2F0BBC2900EB174F /* GoogleSignInSwift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,7 +29,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A715704D2F0BBC2900EB174F /* GoogleSignInSwift in Frameworks */,
 				A715703D2F0B735A00EB174F /* Supabase in Frameworks */,
+				A715704B2F0BBC2900EB174F /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -71,6 +75,8 @@
 			name = EarthLord;
 			packageProductDependencies = (
 				A715703C2F0B735A00EB174F /* Supabase */,
+				A715704A2F0BBC2900EB174F /* GoogleSignIn */,
+				A715704C2F0BBC2900EB174F /* GoogleSignInSwift */,
 			);
 			productName = EarthLord;
 			productReference = A734DE522F08CA7A005B1BA6 /* EarthLord.app */;
@@ -102,6 +108,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				A715703B2F0B735A00EB174F /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				A71570492F0BBC2900EB174F /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A734DE532F08CA7A005B1BA6 /* Products */;
@@ -347,6 +354,14 @@
 				minimumVersion = 2.5.1;
 			};
 		};
+		A71570492F0BBC2900EB174F /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -354,6 +369,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A715703B2F0B735A00EB174F /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		A715704A2F0BBC2900EB174F /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A71570492F0BBC2900EB174F /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		A715704C2F0BBC2900EB174F /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A71570492F0BBC2900EB174F /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -55,6 +55,9 @@ class AuthManager: ObservableObject {
     /// Supabase 客户端实例
     private let supabase: SupabaseClient
 
+    /// 认证状态监听任务
+    private var authStateTask: Task<Void, Never>?
+
     // MARK: - Initialization
 
     init(supabase: SupabaseClient) {
@@ -63,7 +66,12 @@ class AuthManager: ObservableObject {
         // 初始化时检查会话
         Task {
             await checkSession()
+            await setupAuthStateListener()
         }
+    }
+
+    deinit {
+        authStateTask?.cancel()
     }
 
     // MARK: - 注册流程
@@ -341,24 +349,23 @@ class AuthManager: ObservableObject {
         isLoading = true
 
         do {
-            // 获取当前会话
-            let _ = try await supabase.auth.session
+            // 尝试获取当前用户（如果没有有效会话会抛出错误）
+            let user = try await supabase.auth.user()
 
-            // 有有效会话
+            // 有有效用户，获取详细信息
             await fetchCurrentUser()
 
-            // 检查用户是否已设置密码
-            // 注意：这里需要根据实际情况判断
-            // 如果用户是通过邮箱密码登录的，则已完成所有步骤
+            // 如果能获取到用户，说明已完全认证
             isAuthenticated = true
             needsPasswordSetup = false
 
-            print("✅ 检测到有效会话，自动登录")
+            print("✅ 检测到有效会话，自动登录 - 用户: \(user.email ?? "未知")")
 
         } catch {
-            // 没有会话或会话过期
+            // 没有有效用户会话
             isAuthenticated = false
             currentUser = nil
+            needsPasswordSetup = false
             print("ℹ️ 会话检查: 未登录或会话已过期")
         }
 
@@ -385,6 +392,51 @@ class AuthManager: ObservableObject {
         } catch {
             print("❌ 获取用户信息失败: \(error)")
             currentUser = nil
+        }
+    }
+
+    /// 设置认证状态监听
+    /// 监听 Supabase 认证状态变化，自动更新 UI
+    private func setupAuthStateListener() async {
+        authStateTask = Task { @MainActor in
+            for await state in supabase.auth.authStateChanges {
+                print("🔄 认证状态变化: \(state.event)")
+
+                switch state.event {
+                case .signedIn:
+                    // 用户登录
+                    if !needsPasswordSetup {
+                        isAuthenticated = true
+                        await fetchCurrentUser()
+                        print("✅ 用户已登录")
+                    }
+
+                case .signedOut:
+                    // 用户登出
+                    isAuthenticated = false
+                    needsPasswordSetup = false
+                    currentUser = nil
+                    otpSent = false
+                    otpVerified = false
+                    print("👋 用户已登出")
+
+                case .passwordRecovery:
+                    // 密码恢复
+                    print("🔐 密码恢复流程")
+
+                case .tokenRefreshed:
+                    // Token 刷新
+                    print("🔄 Token 已刷新")
+
+                case .userUpdated:
+                    // 用户信息更新
+                    await fetchCurrentUser()
+                    print("📝 用户信息已更新")
+
+                default:
+                    break
+                }
+            }
         }
     }
 
