@@ -457,7 +457,7 @@ class AuthManager: ObservableObject {
             print("📝 获取用户 session 成功，准备调用边缘函数")
 
             // 调用边缘函数删除账户
-            let response = try await supabase.functions.invoke(
+            try await supabase.functions.invoke(
                 "delete-account",
                 options: FunctionInvokeOptions(
                     headers: ["Authorization": "Bearer \(session.accessToken)"]
@@ -465,7 +465,6 @@ class AuthManager: ObservableObject {
             )
 
             print("✅ 边缘函数调用成功")
-            print("📦 响应数据: \(String(data: response.data, encoding: .utf8) ?? "无法解析")")
 
             // 清理本地状态
             isAuthenticated = false
