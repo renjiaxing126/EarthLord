@@ -31,26 +31,26 @@ struct SettingsView: View {
                 VStack(spacing: 24) {
                     // 账号与隐私设置区域
                     VStack(spacing: 12) {
-                        sectionHeader(title: String(localized: "账号与隐私"))
+                        sectionHeader(title: "账号与隐私".appLocalized)
 
                         settingItem(
                             icon: "person.fill",
-                            title: String(localized: "个人资料"),
-                            subtitle: String(localized: "编辑用户名、头像"),
+                            title: "个人资料".appLocalized,
+                            subtitle: "编辑用户名、头像".appLocalized,
                             action: { /* TODO */ }
                         )
 
                         settingItem(
                             icon: "lock.fill",
-                            title: String(localized: "修改密码"),
-                            subtitle: String(localized: "更改登录密码"),
+                            title: "修改密码".appLocalized,
+                            subtitle: "更改登录密码".appLocalized,
                             action: { /* TODO */ }
                         )
 
                         settingItem(
                             icon: "eye.slash.fill",
-                            title: String(localized: "隐私设置"),
-                            subtitle: String(localized: "控制信息可见性"),
+                            title: "隐私设置".appLocalized,
+                            subtitle: "控制信息可见性".appLocalized,
                             action: { /* TODO */ }
                         )
                     }
@@ -59,7 +59,7 @@ struct SettingsView: View {
 
                     // 语言设置区域
                     VStack(spacing: 12) {
-                        sectionHeader(title: String(localized: "语言设置"))
+                        sectionHeader(title: "语言设置".appLocalized)
 
                         // 语言选择器
                         VStack(spacing: 0) {
@@ -109,7 +109,7 @@ struct SettingsView: View {
 
                     // 危险区域
                     VStack(spacing: 12) {
-                        sectionHeader(title: String(localized: "危险区域"))
+                        sectionHeader(title: "危险区域".appLocalized)
 
                         // 删除账户按钮
                         Button {
@@ -130,11 +130,11 @@ struct SettingsView: View {
 
                                 // 文字
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(String(localized: "删除账户"))
+                                    LocalizedText(key: "删除账户")
                                         .font(.system(size: 17, weight: .semibold))
                                         .foregroundColor(.red)
 
-                                    Text(String(localized: "永久删除账户和所有数据"))
+                                    LocalizedText(key: "永久删除账户和所有数据")
                                         .font(.system(size: 13))
                                         .foregroundColor(Color.red.opacity(0.7))
                                 }
@@ -166,7 +166,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .navigationTitle(String(localized: "设置"))
+        .navigationTitle("设置".appLocalized)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(Color(red: 0.09, green: 0.09, blue: 0.09), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
@@ -174,18 +174,18 @@ struct SettingsView: View {
         .onAppear {
             print("✅ 设置页面已打开")
         }
-        .alert(String(localized: "删除账户"), isPresented: $showDeleteConfirmation) {
-            TextField(String(localized: "输入 '删除' 以确认"), text: $confirmationText)
-            Button(String(localized: "取消"), role: .cancel) {
+        .alert("删除账户".appLocalized, isPresented: $showDeleteConfirmation) {
+            TextField("输入 '删除' 以确认".appLocalized, text: $confirmationText)
+            Button("取消".appLocalized, role: .cancel) {
                 confirmationText = ""
                 print("❌ 用户取消删除账户")
             }
-            Button(String(localized: "确认删除"), role: .destructive) {
+            Button("确认删除".appLocalized, role: .destructive) {
                 handleDeleteAccount()
             }
-            .disabled(confirmationText.lowercased() != String(localized: "删除").lowercased())
+            .disabled(confirmationText.lowercased() != "删除".appLocalized.lowercased())
         } message: {
-            Text(String(localized: "此操作将永久删除您的账户和所有数据，且无法恢复。\n\n请输入 '删除' 以确认此操作。"))
+            Text("此操作将永久删除您的账户和所有数据，且无法恢复。\n\n请输入 '删除' 以确认此操作。".appLocalized)
         }
         .overlay {
             if isDeletingAccount {
@@ -199,7 +199,7 @@ struct SettingsView: View {
                             .tint(.white)
                             .scaleEffect(1.5)
 
-                        Text(String(localized: "正在删除账户..."))
+                        LocalizedText(key: "正在删除账户...")
                             .foregroundColor(.white)
                             .font(.system(size: 16, weight: .medium))
                     }
@@ -274,7 +274,7 @@ struct SettingsView: View {
     private func handleDeleteAccount() {
         print("⚠️ 用户确认删除账户，输入的确认文字: '\(confirmationText)'")
 
-        guard confirmationText.lowercased() == String(localized: "删除").lowercased() else {
+        guard confirmationText.lowercased() == "删除".appLocalized.lowercased() else {
             print("❌ 确认文字不匹配，取消删除")
             confirmationText = ""
             return

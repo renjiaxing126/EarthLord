@@ -8,29 +8,31 @@
 import SwiftUI
 
 struct MoreTabView: View {
+    @EnvironmentObject var languageManager: LanguageManager
+
     var body: some View {
         NavigationStack {
             List {
-                Section(String(localized: "开发工具")) {
+                Section("开发工具".appLocalized) {
                     NavigationLink(destination: SupabaseTestView()) {
                         HStack {
                             Image(systemName: "network")
                                 .foregroundColor(.blue)
-                            Text(String(localized: "Supabase 连接测试"))
+                            LocalizedText(key: "Supabase 连接测试")
                         }
                     }
                 }
 
-                Section(String(localized: "更多功能")) {
+                Section("更多功能".appLocalized) {
                     HStack {
                         Image(systemName: "ellipsis")
                             .foregroundColor(.gray)
-                        Text(String(localized: "功能开发中..."))
+                        LocalizedText(key: "功能开发中...")
                             .foregroundColor(.secondary)
                     }
                 }
             }
-            .navigationTitle(String(localized: "更多"))
+            .navigationTitle("更多".appLocalized)
         }
     }
 }

@@ -106,13 +106,17 @@ class LanguageManager: ObservableObject {
             languageCode = "en"
         }
 
-        // 从 Bundle 中查找对应语言的字符串
-        guard let path = Bundle.main.path(forResource: languageCode, ofType: "lproj"),
-              let bundle = Bundle(path: path) else {
-            return NSLocalizedString(key, comment: "")
+        // 从 Localizable.xcstrings 读取对应语言的翻译
+        // 使用 NSLocalizedString 的 bundle 参数指定语言
+        if let path = Bundle.main.path(forResource: languageCode, ofType: "lproj"),
+           let bundle = Bundle(path: path) {
+            let result = bundle.localizedString(forKey: key, value: nil, table: nil)
+            // 如果找到翻译就返回，否则返回 key
+            return result != key ? result : key
         }
 
-        return NSLocalizedString(key, bundle: bundle, comment: "")
+        // 如果没有找到对应的 bundle，直接返回 key（显示源语言）
+        return key
     }
 }
 
@@ -126,10 +130,32 @@ struct LocalizedText: View {
     }
 }
 
+/// 自定义的本地化 LocalizedStringKey，支持 App 内语言切换
+struct AppLocalizedStringKey {
+    let key: String
+
+    init(_ key: String) {
+        self.key = key
+    }
+}
+
+/// View 扩展，用于便捷创建本地化文本
+extension View {
+    /// 创建使用 App 语言设置的本地化 Text
+    func appLocalized(_ key: String) -> some View {
+        LocalizedText(key: key)
+    }
+}
+
 /// String 扩展，用于 App 内语言切换
 extension String {
     /// 根据当前 App 语言设置获取本地化字符串
-    func localized(using languageManager: LanguageManager = .shared) -> String {
+    func appLocalized(using languageManager: LanguageManager = .shared) -> String {
         return languageManager.localizedString(self)
+    }
+
+    /// 简化版本，使用全局 LanguageManager
+    var appLocalized: String {
+        return LanguageManager.shared.localizedString(self)
     }
 }

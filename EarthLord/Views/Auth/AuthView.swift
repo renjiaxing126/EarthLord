@@ -9,6 +9,7 @@ import SwiftUI
 
 struct AuthView: View {
     @EnvironmentObject var authManager: AuthManager
+    @EnvironmentObject var languageManager: LanguageManager
 
     // Tab 选择
     @State private var selectedTab: AuthTab = .login
@@ -113,7 +114,7 @@ struct AuthView: View {
 
             // 标题
             VStack(spacing: 4) {
-                Text(String(localized: "地球新主"))
+                LocalizedText(key: "地球新主")
                     .font(.system(size: 32, weight: .bold))
                     .foregroundColor(ApocalypseTheme.textPrimary)
 
@@ -186,7 +187,7 @@ struct AuthView: View {
             // 邮箱输入框
             CustomTextField(
                 icon: "envelope",
-                placeholder: String(localized: "邮箱"),
+                placeholder: "邮箱".appLocalized,
                 text: $loginEmail
             )
             .textInputAutocapitalization(.never)
@@ -195,7 +196,7 @@ struct AuthView: View {
             // 密码输入框
             CustomSecureField(
                 icon: "lock",
-                placeholder: String(localized: "密码"),
+                placeholder: "密码".appLocalized,
                 text: $loginPassword
             )
 
@@ -205,7 +206,7 @@ struct AuthView: View {
                 Button {
                     showForgotPassword = true
                 } label: {
-                    Text(String(localized: "忘记密码？"))
+                    LocalizedText(key: "忘记密码？")
                         .font(.subheadline)
                         .foregroundColor(ApocalypseTheme.primary)
                 }
@@ -217,7 +218,7 @@ struct AuthView: View {
                     await authManager.signIn(email: loginEmail, password: loginPassword)
                 }
             } label: {
-                Text(String(localized: "登录"))
+                LocalizedText(key: "登录")
                     .font(.headline)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -250,14 +251,14 @@ struct AuthView: View {
     // 注册第一步：邮箱输入
     private var registerStep1: some View {
         VStack(spacing: 16) {
-            Text(String(localized: "步骤 1/3：输入邮箱"))
+            LocalizedText(key: "步骤 1/3：输入邮箱")
                 .font(.subheadline)
                 .foregroundColor(ApocalypseTheme.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             CustomTextField(
                 icon: "envelope",
-                placeholder: String(localized: "邮箱"),
+                placeholder: "邮箱".appLocalized,
                 text: $registerEmail
             )
             .textInputAutocapitalization(.never)
@@ -271,7 +272,7 @@ struct AuthView: View {
                     }
                 }
             } label: {
-                Text(String(localized: "发送验证码"))
+                LocalizedText(key: "发送验证码")
                     .font(.headline)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -287,26 +288,26 @@ struct AuthView: View {
     // 注册第二步：验证码输入
     private var registerStep2: some View {
         VStack(spacing: 16) {
-            Text(String(localized: "步骤 2/3：验证邮箱"))
+            LocalizedText(key: "步骤 2/3：验证邮箱")
                 .font(.subheadline)
                 .foregroundColor(ApocalypseTheme.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text(String(localized: "验证码已发送到 \(registerEmail)"))
+            Text("验证码已发送到 \(registerEmail)".appLocalized)
                 .font(.caption)
                 .foregroundColor(ApocalypseTheme.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             CustomTextField(
                 icon: "number",
-                placeholder: String(localized: "6位验证码"),
+                placeholder: "6位验证码".appLocalized,
                 text: $registerOTP
             )
             .keyboardType(.numberPad)
 
             // 重发倒计时
             if resendCountdown > 0 {
-                Text(String(localized: "\(resendCountdown)秒后可重新发送"))
+                Text("\(resendCountdown)秒后可重新发送".appLocalized)
                     .font(.caption)
                     .foregroundColor(ApocalypseTheme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .trailing)
@@ -321,7 +322,7 @@ struct AuthView: View {
                         }
                     }
                 } label: {
-                    Text(String(localized: "重新发送验证码"))
+                    LocalizedText(key: "重新发送验证码")
                         .font(.subheadline)
                         .foregroundColor(ApocalypseTheme.primary)
                 }
@@ -333,7 +334,7 @@ struct AuthView: View {
                     await authManager.verifyRegisterOTP(email: registerEmail, code: registerOTP)
                 }
             } label: {
-                Text(String(localized: "验证"))
+                LocalizedText(key: "验证")
                     .font(.headline)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -349,25 +350,25 @@ struct AuthView: View {
     // 注册第三步：设置密码
     private var registerStep3: some View {
         VStack(spacing: 16) {
-            Text(String(localized: "步骤 3/3：设置密码"))
+            LocalizedText(key: "步骤 3/3：设置密码")
                 .font(.subheadline)
                 .foregroundColor(ApocalypseTheme.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text(String(localized: "验证成功！请设置您的密码"))
+            LocalizedText(key: "验证成功！请设置您的密码")
                 .font(.caption)
                 .foregroundColor(.green)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             CustomSecureField(
                 icon: "lock",
-                placeholder: String(localized: "密码（至少6位）"),
+                placeholder: "密码（至少6位）".appLocalized,
                 text: $registerPassword
             )
 
             CustomSecureField(
                 icon: "lock.fill",
-                placeholder: String(localized: "确认密码"),
+                placeholder: "确认密码".appLocalized,
                 text: $registerConfirmPassword
             )
 
@@ -375,7 +376,7 @@ struct AuthView: View {
             if !registerConfirmPassword.isEmpty && registerPassword != registerConfirmPassword {
                 HStack {
                     Image(systemName: "xmark.circle.fill")
-                    Text(String(localized: "两次密码不一致"))
+                    LocalizedText(key: "两次密码不一致")
                         .font(.caption)
                 }
                 .foregroundColor(.red)
@@ -387,7 +388,7 @@ struct AuthView: View {
                     await authManager.completeRegistration(password: registerPassword)
                 }
             } label: {
-                Text(String(localized: "完成注册"))
+                LocalizedText(key: "完成注册")
                     .font(.headline)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -410,7 +411,7 @@ struct AuthView: View {
                     .fill(ApocalypseTheme.textSecondary.opacity(0.3))
                     .frame(height: 1)
 
-                Text(String(localized: "或者使用以下方式登录"))
+                LocalizedText(key: "或者使用以下方式登录")
                     .font(.caption)
                     .foregroundColor(ApocalypseTheme.textSecondary)
                     .padding(.horizontal, 12)
@@ -428,7 +429,7 @@ struct AuthView: View {
                     HStack {
                         Image(systemName: "apple.logo")
                             .font(.title3)
-                        Text(String(localized: "使用 Apple 登录"))
+                        LocalizedText(key: "使用 Apple 登录")
                             .font(.headline)
                     }
                     .foregroundColor(.white)
@@ -449,7 +450,7 @@ struct AuthView: View {
                     HStack {
                         Image(systemName: "globe")
                             .font(.title3)
-                        Text(String(localized: "使用 Google 登录"))
+                        LocalizedText(key: "使用 Google 登录")
                             .font(.headline)
                     }
                     .foregroundColor(.black)
@@ -516,7 +517,7 @@ struct AuthView: View {
                         .tint(.white)
                 }
             }
-            .navigationTitle(String(localized: "找回密码"))
+            .navigationTitle("找回密码".appLocalized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -535,14 +536,14 @@ struct AuthView: View {
     // 忘记密码第一步
     private var forgotPasswordStep1: some View {
         VStack(spacing: 16) {
-            Text(String(localized: "步骤 1/3：输入邮箱"))
+            LocalizedText(key: "步骤 1/3：输入邮箱")
                 .font(.subheadline)
                 .foregroundColor(ApocalypseTheme.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             CustomTextField(
                 icon: "envelope",
-                placeholder: String(localized: "邮箱"),
+                placeholder: "邮箱".appLocalized,
                 text: $forgotPasswordEmail
             )
             .textInputAutocapitalization(.never)
@@ -556,7 +557,7 @@ struct AuthView: View {
                     }
                 }
             } label: {
-                Text(String(localized: "发送验证码"))
+                LocalizedText(key: "发送验证码")
                     .font(.headline)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -572,26 +573,26 @@ struct AuthView: View {
     // 忘记密码第二步
     private var forgotPasswordStep2: some View {
         VStack(spacing: 16) {
-            Text(String(localized: "步骤 2/3：验证邮箱"))
+            LocalizedText(key: "步骤 2/3：验证邮箱")
                 .font(.subheadline)
                 .foregroundColor(ApocalypseTheme.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text(String(localized: "验证码已发送到 \(forgotPasswordEmail)"))
+            Text("验证码已发送到 \(forgotPasswordEmail)".appLocalized)
                 .font(.caption)
                 .foregroundColor(ApocalypseTheme.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             CustomTextField(
                 icon: "number",
-                placeholder: String(localized: "6位验证码"),
+                placeholder: "6位验证码".appLocalized,
                 text: $forgotPasswordOTP
             )
             .keyboardType(.numberPad)
 
             // 重发倒计时
             if forgotResendCountdown > 0 {
-                Text(String(localized: "\(forgotResendCountdown)秒后可重新发送"))
+                Text("\(forgotResendCountdown)秒后可重新发送".appLocalized)
                     .font(.caption)
                     .foregroundColor(ApocalypseTheme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .trailing)
@@ -606,7 +607,7 @@ struct AuthView: View {
                         }
                     }
                 } label: {
-                    Text(String(localized: "重新发送验证码"))
+                    LocalizedText(key: "重新发送验证码")
                         .font(.subheadline)
                         .foregroundColor(ApocalypseTheme.primary)
                 }
@@ -618,7 +619,7 @@ struct AuthView: View {
                     await authManager.verifyResetOTP(email: forgotPasswordEmail, code: forgotPasswordOTP)
                 }
             } label: {
-                Text(String(localized: "验证"))
+                LocalizedText(key: "验证")
                     .font(.headline)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -634,25 +635,25 @@ struct AuthView: View {
     // 忘记密码第三步
     private var forgotPasswordStep3: some View {
         VStack(spacing: 16) {
-            Text(String(localized: "步骤 3/3：设置新密码"))
+            LocalizedText(key: "步骤 3/3：设置新密码")
                 .font(.subheadline)
                 .foregroundColor(ApocalypseTheme.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text(String(localized: "验证成功！请设置新密码"))
+            LocalizedText(key: "验证成功！请设置新密码")
                 .font(.caption)
                 .foregroundColor(.green)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             CustomSecureField(
                 icon: "lock",
-                placeholder: String(localized: "新密码（至少6位）"),
+                placeholder: "新密码（至少6位）".appLocalized,
                 text: $forgotPasswordNew
             )
 
             CustomSecureField(
                 icon: "lock.fill",
-                placeholder: String(localized: "确认新密码"),
+                placeholder: "确认新密码".appLocalized,
                 text: $forgotPasswordConfirm
             )
 
@@ -660,7 +661,7 @@ struct AuthView: View {
             if !forgotPasswordConfirm.isEmpty && forgotPasswordNew != forgotPasswordConfirm {
                 HStack {
                     Image(systemName: "xmark.circle.fill")
-                    Text(String(localized: "两次密码不一致"))
+                    LocalizedText(key: "两次密码不一致")
                         .font(.caption)
                 }
                 .foregroundColor(.red)
@@ -676,7 +677,7 @@ struct AuthView: View {
                     }
                 }
             } label: {
-                Text(String(localized: "重置密码"))
+                LocalizedText(key: "重置密码")
                     .font(.headline)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -774,8 +775,8 @@ enum AuthTab: CaseIterable {
 
     var title: String {
         switch self {
-        case .login: return String(localized: "登录")
-        case .register: return String(localized: "注册")
+        case .login: return "登录".appLocalized
+        case .register: return "注册".appLocalized
         }
     }
 }

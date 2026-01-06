@@ -10,6 +10,7 @@ import Supabase
 
 struct ProfileTabView: View {
     @EnvironmentObject var authManager: AuthManager
+    @EnvironmentObject var languageManager: LanguageManager
 
     /// 显示登出确认对话框
     @State private var showLogoutConfirmation = false
@@ -46,37 +47,37 @@ struct ProfileTabView: View {
                             } label: {
                                 menuItemContent(
                                     icon: "gearshape.fill",
-                                    title: String(localized: "设置"),
-                                    subtitle: String(localized: "账号与隐私设置")
+                                    title: "设置".appLocalized,
+                                    subtitle: "账号与隐私设置".appLocalized
                                 )
                             }
                             .buttonStyle(.plain)
 
                             menuItem(
                                 icon: "bell.fill",
-                                title: String(localized: "通知"),
-                                subtitle: String(localized: "消息提醒设置"),
+                                title: "通知".appLocalized,
+                                subtitle: "消息提醒设置".appLocalized,
                                 action: { /* TODO: 导航到通知设置 */ }
                             )
 
                             menuItem(
                                 icon: "shield.fill",
-                                title: String(localized: "安全"),
-                                subtitle: String(localized: "密码与登录安全"),
+                                title: "安全".appLocalized,
+                                subtitle: "密码与登录安全".appLocalized,
                                 action: { /* TODO: 导航到安全设置 */ }
                             )
 
                             menuItem(
                                 icon: "questionmark.circle.fill",
-                                title: String(localized: "帮助"),
-                                subtitle: String(localized: "常见问题与反馈"),
+                                title: "帮助".appLocalized,
+                                subtitle: "常见问题与反馈".appLocalized,
                                 action: { /* TODO: 导航到帮助页面 */ }
                             )
 
                             menuItem(
                                 icon: "info.circle.fill",
-                                title: String(localized: "关于"),
-                                subtitle: String(localized: "版本信息"),
+                                title: "关于".appLocalized,
+                                subtitle: "版本信息".appLocalized,
                                 action: { /* TODO: 导航到关于页面 */ }
                             )
                         }
@@ -89,7 +90,7 @@ struct ProfileTabView: View {
                             HStack(spacing: 12) {
                                 Image(systemName: "rectangle.portrait.and.arrow.right")
                                     .font(.system(size: 18, weight: .semibold))
-                                Text(String(localized: "退出登录"))
+                                LocalizedText(key: "退出登录")
                                     .font(.system(size: 17, weight: .semibold))
                             }
                             .foregroundColor(.white)
@@ -116,7 +117,7 @@ struct ProfileTabView: View {
                             HStack(spacing: 12) {
                                 Image(systemName: "trash.fill")
                                     .font(.system(size: 18, weight: .semibold))
-                                Text(String(localized: "删除账户"))
+                                LocalizedText(key: "删除账户")
                                     .font(.system(size: 17, weight: .semibold))
                             }
                             .foregroundColor(.white)
@@ -145,33 +146,33 @@ struct ProfileTabView: View {
                     }
                 }
             }
-            .navigationTitle(String(localized: "个人中心"))
+            .navigationTitle("个人中心".appLocalized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Color(red: 0.09, green: 0.09, blue: 0.09), for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
-            .alert(String(localized: "退出登录"), isPresented: $showLogoutConfirmation) {
-                Button(String(localized: "取消"), role: .cancel) {}
-                Button(String(localized: "退出"), role: .destructive) {
+            .alert("退出登录".appLocalized, isPresented: $showLogoutConfirmation) {
+                Button("取消".appLocalized, role: .cancel) {}
+                Button("退出".appLocalized, role: .destructive) {
                     Task {
                         await authManager.signOut()
                     }
                 }
             } message: {
-                Text(String(localized: "确定要退出登录吗？"))
+                Text("确定要退出登录吗？".appLocalized)
             }
-            .alert(String(localized: "删除账户"), isPresented: $showDeleteConfirmation) {
-                TextField(String(localized: "输入 '删除' 以确认"), text: $confirmationText)
-                Button(String(localized: "取消"), role: .cancel) {
+            .alert("删除账户".appLocalized, isPresented: $showDeleteConfirmation) {
+                TextField("输入 '删除' 以确认".appLocalized, text: $confirmationText)
+                Button("取消".appLocalized, role: .cancel) {
                     confirmationText = ""
                     print("❌ 用户取消删除账户")
                 }
-                Button(String(localized: "确认删除"), role: .destructive) {
+                Button("确认删除".appLocalized, role: .destructive) {
                     handleDeleteAccount()
                 }
-                .disabled(confirmationText.lowercased() != String(localized: "删除").lowercased())
+                .disabled(confirmationText.lowercased() != "删除".appLocalized.lowercased())
             } message: {
-                Text(String(localized: "此操作将永久删除您的账户和所有数据，且无法恢复。\n\n请输入 '删除' 以确认此操作。"))
+                Text("此操作将永久删除您的账户和所有数据，且无法恢复。\n\n请输入 '删除' 以确认此操作。".appLocalized)
             }
             .overlay {
                 if isDeletingAccount {
@@ -185,7 +186,7 @@ struct ProfileTabView: View {
                                 .tint(.white)
                                 .scaleEffect(1.5)
 
-                            Text(String(localized: "正在删除账户..."))
+                            LocalizedText(key: "正在删除账户...")
                                 .foregroundColor(.white)
                                 .font(.system(size: 16, weight: .medium))
                         }
@@ -201,7 +202,7 @@ struct ProfileTabView: View {
     private func handleDeleteAccount() {
         print("⚠️ 用户确认删除账户，输入的确认文字: '\(confirmationText)'")
 
-        guard confirmationText.lowercased() == String(localized: "删除").lowercased() else {
+        guard confirmationText.lowercased() == "删除".appLocalized.lowercased() else {
             print("❌ 确认文字不匹配，取消删除")
             confirmationText = ""
             return
@@ -259,12 +260,12 @@ struct ProfileTabView: View {
                 .foregroundColor(.white)
 
             // 邮箱
-            Text(user.email ?? String(localized: "未知邮箱"))
+            Text(user.email ?? "未知邮箱".appLocalized)
                 .font(.system(size: 15))
                 .foregroundColor(Color.white.opacity(0.7))
 
             // 用户 ID
-            Text(String(localized: "ID: \(user.id.prefix(8))..."))
+            Text("ID: \(user.id.prefix(8))...".appLocalized)
                 .font(.system(size: 13))
                 .foregroundColor(Color.white.opacity(0.5))
         }
@@ -332,8 +333,8 @@ struct ProfileTabView: View {
 
     /// 从邮箱提取用户名
     private func getUserName(email: String?) -> String {
-        guard let email = email else { return String(localized: "幸存者") }
-        return email.components(separatedBy: "@").first ?? String(localized: "幸存者")
+        guard let email = email else { return "幸存者".appLocalized }
+        return email.components(separatedBy: "@").first ?? "幸存者".appLocalized
     }
 
     /// 获取用户名首字母（用于头像）
