@@ -11,26 +11,26 @@ struct MoreTabView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("开发工具") {
+                Section(String(localized: "开发工具")) {
                     NavigationLink(destination: SupabaseTestView()) {
                         HStack {
                             Image(systemName: "network")
                                 .foregroundColor(.blue)
-                            Text("Supabase 连接测试")
+                            Text(String(localized: "Supabase 连接测试"))
                         }
                     }
                 }
 
-                Section("更多功能") {
+                Section(String(localized: "更多功能")) {
                     HStack {
                         Image(systemName: "ellipsis")
                             .foregroundColor(.gray)
-                        Text("功能开发中...")
+                        Text(String(localized: "功能开发中..."))
                             .foregroundColor(.secondary)
                     }
                 }
             }
-            .navigationTitle("更多")
+            .navigationTitle(String(localized: "更多"))
         }
     }
 }
