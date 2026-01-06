@@ -120,6 +120,9 @@ struct SettingsView: View {
         .toolbarBackground(Color(red: 0.09, green: 0.09, blue: 0.09), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        .onAppear {
+            print("✅ 设置页面已打开")
+        }
         .alert("删除账户", isPresented: $showDeleteConfirmation) {
             TextField("输入 '删除' 以确认", text: $confirmationText)
             Button("取消", role: .cancel) {

@@ -14,6 +14,15 @@ struct ProfileTabView: View {
     /// 显示登出确认对话框
     @State private var showLogoutConfirmation = false
 
+    /// 显示删除账户确认对话框
+    @State private var showDeleteConfirmation = false
+
+    /// 用户输入的确认文字
+    @State private var confirmationText = ""
+
+    /// 是否正在删除账户
+    @State private var isDeletingAccount = false
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -32,13 +41,16 @@ struct ProfileTabView: View {
                         // 菜单项列表
                         VStack(spacing: 12) {
                             // 设置 - 导航到设置页面
-                            NavigationLink(destination: SettingsView()) {
+                            NavigationLink {
+                                SettingsView()
+                            } label: {
                                 menuItemContent(
                                     icon: "gearshape.fill",
                                     title: "设置",
                                     subtitle: "账号与隐私设置"
                                 )
                             }
+                            .buttonStyle(.plain)
 
                             menuItem(
                                 icon: "bell.fill",
@@ -94,6 +106,33 @@ struct ProfileTabView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 12)
+                        .disabled(authManager.isLoading)
+
+                        // 删除账户按钮
+                        Button {
+                            print("🔴 点击删除账户按钮")
+                            showDeleteConfirmation = true
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "trash.fill")
+                                    .font(.system(size: 18, weight: .semibold))
+                                Text("删除账户")
+                                    .font(.system(size: 17, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 54)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.red, lineWidth: 2)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(Color.red.opacity(0.1))
+                                    )
+                            )
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
                         .padding(.bottom, 40)
                         .disabled(authManager.isLoading)
 
@@ -120,6 +159,75 @@ struct ProfileTabView: View {
                 }
             } message: {
                 Text("确定要退出登录吗？")
+            }
+            .alert("删除账户", isPresented: $showDeleteConfirmation) {
+                TextField("输入 '删除' 以确认", text: $confirmationText)
+                Button("取消", role: .cancel) {
+                    confirmationText = ""
+                    print("❌ 用户取消删除账户")
+                }
+                Button("确认删除", role: .destructive) {
+                    handleDeleteAccount()
+                }
+                .disabled(confirmationText != "删除")
+            } message: {
+                Text("此操作将永久删除您的账户和所有数据，且无法恢复。\n\n请输入 '删除' 以确认此操作。")
+            }
+            .overlay {
+                if isDeletingAccount {
+                    // 删除中的加载遮罩
+                    ZStack {
+                        Color.black.opacity(0.7)
+                            .ignoresSafeArea()
+
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .tint(.white)
+                                .scaleEffect(1.5)
+
+                            Text("正在删除账户...")
+                                .foregroundColor(.white)
+                                .font(.system(size: 16, weight: .medium))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - 删除账户处理
+
+    /// 处理删除账户
+    private func handleDeleteAccount() {
+        print("⚠️ 用户确认删除账户，输入的确认文字: '\(confirmationText)'")
+
+        guard confirmationText == "删除" else {
+            print("❌ 确认文字不匹配，取消删除")
+            confirmationText = ""
+            return
+        }
+
+        print("🔄 开始删除账户流程")
+
+        isDeletingAccount = true
+        confirmationText = ""
+
+        Task {
+            await authManager.deleteAccount()
+
+            // 删除完成后，等待一小段时间让用户看到加载状态
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5秒
+
+            await MainActor.run {
+                isDeletingAccount = false
+
+                if authManager.errorMessage == nil {
+                    // 删除成功
+                    print("✅ 账户删除成功")
+                } else {
+                    // 删除失败，显示错误
+                    print("❌ 账户删除失败: \(authManager.errorMessage ?? "未知错误")")
+                }
             }
         }
     }
