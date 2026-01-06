@@ -442,6 +442,50 @@ class AuthManager: ObservableObject {
         }
     }
 
+    /// 删除用户账户
+    /// 调用 Supabase 边缘函数永久删除账户
+    func deleteAccount() async {
+        isLoading = true
+        errorMessage = nil
+
+        print("🗑️ 开始删除账户流程")
+
+        do {
+            // 获取当前 session
+            let session = try await supabase.auth.session
+
+            print("📝 获取用户 session 成功，准备调用边缘函数")
+
+            // 调用边缘函数删除账户
+            let response = try await supabase.functions.invoke(
+                "delete-account",
+                options: FunctionInvokeOptions(
+                    headers: ["Authorization": "Bearer \(session.accessToken)"]
+                )
+            )
+
+            print("✅ 边缘函数调用成功")
+            print("📦 响应数据: \(String(data: response.data, encoding: .utf8) ?? "无法解析")")
+
+            // 清理本地状态
+            isAuthenticated = false
+            needsPasswordSetup = false
+            currentUser = nil
+            otpSent = false
+            otpVerified = false
+
+            print("🧹 本地状态已清理，账户删除完成")
+
+        } catch {
+            // 处理错误
+            errorMessage = "删除账户失败: \(error.localizedDescription)"
+            print("❌ 删除账户失败: \(error)")
+            print("❌ 错误详情: \(error)")
+        }
+
+        isLoading = false
+    }
+
     /// 重置错误消息
     func clearError() {
         errorMessage = nil

@@ -31,12 +31,14 @@ struct ProfileTabView: View {
 
                         // 菜单项列表
                         VStack(spacing: 12) {
-                            menuItem(
-                                icon: "gearshape.fill",
-                                title: "设置",
-                                subtitle: "账号与隐私设置",
-                                action: { /* TODO: 导航到设置页面 */ }
-                            )
+                            // 设置 - 导航到设置页面
+                            NavigationLink(destination: SettingsView()) {
+                                menuItemContent(
+                                    icon: "gearshape.fill",
+                                    title: "设置",
+                                    subtitle: "账号与隐私设置"
+                                )
+                            }
 
                             menuItem(
                                 icon: "bell.fill",
@@ -168,45 +170,53 @@ struct ProfileTabView: View {
     }
 
     // MARK: - 菜单项
+
+    /// 菜单项内容（用于 NavigationLink）
+    @ViewBuilder
+    private func menuItemContent(icon: String, title: String, subtitle: String) -> some View {
+        HStack(spacing: 16) {
+            // 图标
+            ZStack {
+                Circle()
+                    .fill(ApocalypseTheme.primary.opacity(0.2))
+                    .frame(width: 44, height: 44)
+
+                Image(systemName: icon)
+                    .font(.system(size: 20))
+                    .foregroundColor(ApocalypseTheme.primary)
+            }
+
+            // 文字
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.white)
+
+                Text(subtitle)
+                    .font(.system(size: 13))
+                    .foregroundColor(Color.white.opacity(0.6))
+            }
+
+            Spacer()
+
+            // 箭头
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Color.white.opacity(0.3))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(red: 0.15, green: 0.15, blue: 0.15))
+        )
+    }
+
+    /// 菜单项（按钮版本）
     @ViewBuilder
     private func menuItem(icon: String, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 16) {
-                // 图标
-                ZStack {
-                    Circle()
-                        .fill(ApocalypseTheme.primary.opacity(0.2))
-                        .frame(width: 44, height: 44)
-
-                    Image(systemName: icon)
-                        .font(.system(size: 20))
-                        .foregroundColor(ApocalypseTheme.primary)
-                }
-
-                // 文字
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.white)
-
-                    Text(subtitle)
-                        .font(.system(size: 13))
-                        .foregroundColor(Color.white.opacity(0.6))
-                }
-
-                Spacer()
-
-                // 箭头
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Color.white.opacity(0.3))
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(red: 0.15, green: 0.15, blue: 0.15))
-            )
+            menuItemContent(icon: icon, title: title, subtitle: subtitle)
         }
     }
 
