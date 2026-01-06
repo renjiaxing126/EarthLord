@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var authManager: AuthManager
+    @StateObject private var languageManager = LanguageManager.shared
     @Environment(\.dismiss) var dismiss
 
     /// 显示删除账户确认对话框
@@ -55,6 +56,56 @@ struct SettingsView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 20)
+
+                    // 语言设置区域
+                    VStack(spacing: 12) {
+                        sectionHeader(title: String(localized: "语言设置"))
+
+                        // 语言选择器
+                        VStack(spacing: 0) {
+                            ForEach(AppLanguage.allCases) { language in
+                                Button {
+                                    languageManager.switchLanguage(to: language)
+                                } label: {
+                                    HStack(spacing: 16) {
+                                        // 语言图标
+                                        ZStack {
+                                            Circle()
+                                                .fill(ApocalypseTheme.primary.opacity(0.2))
+                                                .frame(width: 44, height: 44)
+
+                                            Image(systemName: "globe")
+                                                .font(.system(size: 20))
+                                                .foregroundColor(ApocalypseTheme.primary)
+                                        }
+
+                                        // 语言名称
+                                        Text(language.displayName)
+                                            .font(.system(size: 17, weight: .medium))
+                                            .foregroundColor(.white)
+
+                                        Spacer()
+
+                                        // 选中标记
+                                        if languageManager.currentLanguage == language {
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: 16, weight: .semibold))
+                                                .foregroundColor(ApocalypseTheme.primary)
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 16)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(languageManager.currentLanguage == language
+                                                ? ApocalypseTheme.primary.opacity(0.1)
+                                                : Color(red: 0.15, green: 0.15, blue: 0.15))
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
 
                     // 危险区域
                     VStack(spacing: 12) {
