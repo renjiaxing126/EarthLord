@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Xcode">
+    <!--
+    场景 5：速度警告（骑车速度）
+    - 移动速度：约 18 km/h（15-30 km/h）
+    - 预期结果：⚠️ 橙色横幅 "速度较快（18 km/h），请注意"
+    - 仍然会记录点
+    -->
+
+    <trk>
+        <name>速度警告测试（骑车）</name>
+        <trkseg>
+            <!-- 起点 -->
+            <trkpt lat="39.9042" lon="116.4074">
+                <time>2026-01-07T00:00:00Z</time>
+            </trkpt>
+
+            <!-- 快速移动（每2秒约10米，速度 = 10m/2s = 18 km/h） -->
+            <trkpt lat="39.90429" lon="116.4074">
+                <time>2026-01-07T00:00:02Z</time>
+            </trkpt>
+
+            <trkpt lat="39.90438" lon="116.4074">
+                <time>2026-01-07T00:00:04Z</time>
+            </trkpt>
+
+            <trkpt lat="39.90447" lon="116.4074">
+                <time>2026-01-07T00:00:06Z</time>
+            </trkpt>
+
+            <trkpt lat="39.90456" lon="116.4074">
+                <time>2026-01-07T00:00:08Z</time>
+            </trkpt>
+
+            <trkpt lat="39.90456" lon="116.40749">
+                <time>2026-01-07T00:00:10Z</time>
+            </trkpt>
+
+            <trkpt lat="39.90456" lon="116.40758">
+                <time>2026-01-07T00:00:12Z</time>
+            </trkpt>
+
+            <trkpt lat="39.90447" lon="116.40758">
+                <time>2026-01-07T00:00:14Z</time>
+            </trkpt>
+
+            <trkpt lat="39.90438" lon="116.40758">
+                <time>2026-01-07T00:00:16Z</time>
+            </trkpt>
+
+            <trkpt lat="39.90429" lon="116.40758">
+                <time>2026-01-07T00:00:18Z</time>
+            </trkpt>
+
+            <trkpt lat="39.9042" lon="116.40758">
+                <time>2026-01-07T00:00:20Z</time>
+            </trkpt>
+
+            <trkpt lat="39.9042" lon="116.40749">
+                <time>2026-01-07T00:00:22Z</time>
+            </trkpt>
+
+            <trkpt lat="39.9042" lon="116.40741">
+                <time>2026-01-07T00:00:24Z</time>
+            </trkpt>
+        </trkseg>
+    </trk>
+</gpx>

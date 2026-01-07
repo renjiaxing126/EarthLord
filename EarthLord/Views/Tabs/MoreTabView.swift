@@ -14,11 +14,11 @@ struct MoreTabView: View {
         NavigationStack {
             List {
                 Section("开发工具".appLocalized) {
-                    NavigationLink(destination: SupabaseTestView()) {
+                    NavigationLink(destination: TestMenuView()) {
                         HStack {
-                            Image(systemName: "network")
+                            Image(systemName: "wrench.and.screwdriver")
                                 .foregroundColor(.blue)
-                            LocalizedText(key: "Supabase 连接测试")
+                            LocalizedText(key: "开发测试")
                         }
                     }
                 }

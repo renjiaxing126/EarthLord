@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Xcode">
+    <!--
+    场景 4：点数不足
+    - 点数：8 个点（< 10）
+    - 无法闭环（点数不够）
+    - 预期结果：❌ 不会闭环（日志显示"点数不足"）
+    -->
+
+    <trk>
+        <name>点数不足测试</name>
+        <trkseg>
+            <!-- 起点 -->
+            <trkpt lat="39.9042" lon="116.4074">
+                <time>2026-01-07T00:00:00Z</time>
+            </trkpt>
+
+            <trkpt lat="39.90430" lon="116.4074">
+                <time>2026-01-07T00:00:03Z</time>
+            </trkpt>
+
+            <trkpt lat="39.90440" lon="116.4074">
+                <time>2026-01-07T00:00:06Z</time>
+            </trkpt>
+
+            <trkpt lat="39.90440" lon="116.40750">
+                <time>2026-01-07T00:00:09Z</time>
+            </trkpt>
+
+            <trkpt lat="39.90440" lon="116.40760">
+                <time>2026-01-07T00:00:12Z</time>
+            </trkpt>
+
+            <trkpt lat="39.90430" lon="116.40760">
+                <time>2026-01-07T00:00:15Z</time>
+            </trkpt>
+
+            <trkpt lat="39.9042" lon="116.40760">
+                <time>2026-01-07T00:00:18Z</time>
+            </trkpt>
+
+            <!-- 回到起点附近（但点数不够，无法闭环） -->
+            <trkpt lat="39.9042" lon="116.40741">
+                <time>2026-01-07T00:00:21Z</time>
+            </trkpt>
+        </trkseg>
+    </trk>
+</gpx>

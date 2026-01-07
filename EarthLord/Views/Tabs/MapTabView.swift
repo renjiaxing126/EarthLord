@@ -11,24 +11,87 @@ import MapKit
 struct MapTabView: View {
     @StateObject private var locationManager = LocationManager.shared
     @EnvironmentObject var languageManager: LanguageManager
+    @State private var showSpeedWarning = false
+    @State private var showValidationBanner = false
 
     var body: some View {
         ZStack {
             // 地图视图
-            MapViewRepresentable(locationManager: locationManager)
-                .ignoresSafeArea()
+            MapViewRepresentable(
+                locationManager: locationManager,
+                trackingPath: $locationManager.pathCoordinates,
+                pathUpdateVersion: locationManager.pathUpdateVersion,
+                isTracking: locationManager.isTracking,
+                isPathClosed: locationManager.isPathClosed
+            )
+            .ignoresSafeArea()
 
-            // 顶部状态栏
-            VStack {
+            // 顶部状态栏、速度警告和验证结果横幅
+            VStack(spacing: 12) {
                 statusBar
+
+                // 速度警告横幅
+                if let warning = locationManager.speedWarning, showSpeedWarning {
+                    speedWarningBanner(warning: warning)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
+                // 验证结果横幅
+                if showValidationBanner {
+                    validationResultBanner
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
                 Spacer()
             }
+
+            // 圈地按钮（右下角）
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    claimButton
+                }
+            }
+            .padding(.trailing, 16)
+            .padding(.bottom, 100) // 避开底部 Tab Bar
 
             // 权限请求或错误提示
             if locationManager.isDenied {
                 permissionDeniedView
             } else if locationManager.authorizationStatus == .notDetermined {
                 permissionRequestView
+            }
+        }
+        .onChange(of: locationManager.speedWarning) {
+            if locationManager.speedWarning != nil {
+                // 显示警告
+                withAnimation {
+                    showSpeedWarning = true
+                }
+                // 3秒后自动隐藏
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                    withAnimation {
+                        showSpeedWarning = false
+                    }
+                }
+            }
+        }
+        // 监听闭环状态，闭环后根据验证结果显示横幅
+        .onReceive(locationManager.$isPathClosed) { isClosed in
+            if isClosed {
+                // 闭环后延迟一点点，等待验证结果
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation {
+                        showValidationBanner = true
+                    }
+                    // 3 秒后自动隐藏
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        withAnimation {
+                            showValidationBanner = false
+                        }
+                    }
+                }
             }
         }
         .onAppear {
@@ -183,6 +246,99 @@ struct MapTabView: View {
                 .fill(Color(red: 0.09, green: 0.09, blue: 0.09))
         )
         .padding(24)
+    }
+
+    /// 速度警告横幅
+    private func speedWarningBanner(warning: String) -> some View {
+        HStack(spacing: 12) {
+            // 警告图标
+            Image(systemName: locationManager.isTracking ? "exclamationmark.triangle.fill" : "exclamationmark.octagon.fill")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.white)
+
+            // 警告文字
+            Text(warning)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.white)
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(locationManager.isTracking ? Color.orange : Color.red)
+                .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+        )
+        .padding(.horizontal, 16)
+    }
+
+    /// 验证结果横幅（根据验证结果显示成功或失败）
+    private var validationResultBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: locationManager.territoryValidationPassed
+                  ? "checkmark.circle.fill"
+                  : "xmark.circle.fill")
+                .font(.body)
+            if locationManager.territoryValidationPassed {
+                Text("圈地成功！领地面积: \(String(format: "%.0f", locationManager.calculatedArea))m²")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+            } else {
+                Text(locationManager.territoryValidationError ?? "验证失败")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+            }
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(locationManager.territoryValidationPassed ? Color.green : Color.red)
+                .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+        )
+        .padding(.horizontal, 16)
+    }
+
+    /// 圈地按钮
+    private var claimButton: some View {
+        Button {
+            if locationManager.isTracking {
+                // 停止追踪
+                locationManager.stopPathTracking()
+            } else {
+                // 开始追踪
+                locationManager.startPathTracking()
+            }
+        } label: {
+            HStack(spacing: 8) {
+                // 图标
+                Image(systemName: locationManager.isTracking ? "stop.fill" : "flag.fill")
+                    .font(.system(size: 16, weight: .semibold))
+
+                // 文字
+                if locationManager.isTracking {
+                    Text("停止圈地")
+                    Text("(\(locationManager.pathCoordinates.count))")
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                } else {
+                    Text("开始圈地")
+                }
+            }
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+            .background(
+                Capsule()
+                    .fill(locationManager.isTracking ? Color.red : ApocalypseTheme.primary)
+                    .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+            )
+        }
+        .disabled(!locationManager.isAuthorized)
+        .opacity(locationManager.isAuthorized ? 1.0 : 0.5)
     }
 
     // MARK: - 方法
