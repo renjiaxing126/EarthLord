@@ -151,6 +151,10 @@ struct MapTabView: View {
                 await loadTerritories()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .triggerCollisionCheck)) { _ in
+            // Day 19: 收到碰撞检测触发通知（定时器触发）
+            performCollisionCheck()
+        }
     }
 
     // MARK: - 组件
@@ -580,14 +584,52 @@ struct MapTabView: View {
 
     /// Day 19: 带碰撞检测的开始圈地
     private func startClaimingWithCollisionCheck() {
-        guard let location = locationManager.userLocation,
-              let userId = currentUserId else {
-            // 没有位置或用户ID，直接开始（会在其他地方处理错误）
-            trackingStartTime = Date()
-            locationManager.startPathTracking()
-            startCollisionMonitoring()
+        print("🚩 开始圈地检查：location=\(locationManager.userLocation != nil), userId=\(currentUserId ?? "nil")")
+
+        // ⚠️ 关键修复：如果 currentUserId 为空，立即尝试获取
+        if currentUserId == nil {
+            print("⚠️ currentUserId 为空，立即尝试获取...")
+            Task {
+                do {
+                    let session = try await SupabaseService.shared.auth.session
+                    await MainActor.run {
+                        currentUserId = session.user.id.uuidString
+                        print("✅ 成功获取 userId: \(session.user.id.uuidString)")
+                        TerritoryLogger.shared.log("获取用户ID: \(session.user.id.uuidString)", type: .info)
+                        // 获取到ID后，立即执行检测
+                        performStartWithCollisionCheck()
+                    }
+                } catch {
+                    print("❌ 获取用户ID失败: \(error)")
+                    TerritoryLogger.shared.log("获取用户ID失败: \(error.localizedDescription)", type: .error)
+                    // 失败了也要继续，但碰撞检测会失效
+                    await MainActor.run {
+                        performStartWithoutCollisionCheck()
+                    }
+                }
+            }
             return
         }
+
+        // 有 userId，继续检测
+        performStartWithCollisionCheck()
+    }
+
+    /// 执行带碰撞检测的开始逻辑
+    private func performStartWithCollisionCheck() {
+        guard let location = locationManager.userLocation else {
+            print("❌ 无法获取当前位置")
+            performStartWithoutCollisionCheck()
+            return
+        }
+
+        guard let userId = currentUserId else {
+            print("❌ userId 仍然为空")
+            performStartWithoutCollisionCheck()
+            return
+        }
+
+        print("✅ 开始起点碰撞检测")
 
         // 检测起始点是否在他人领地内
         let result = territoryManager.checkPointCollision(
@@ -627,19 +669,33 @@ struct MapTabView: View {
         startCollisionMonitoring()
     }
 
+    /// 执行不带碰撞检测的开始逻辑（降级方案）
+    private func performStartWithoutCollisionCheck() {
+        print("⚠️ 跳过碰撞检测，直接开始圈地")
+        TerritoryLogger.shared.log("警告：用户ID未获取，碰撞检测已禁用", type: .warning)
+        trackingStartTime = Date()
+        locationManager.startPathTracking()
+        // 不启动碰撞监控
+    }
+
     /// Day 19: 启动碰撞检测监控
     private func startCollisionMonitoring() {
         // 先停止已有定时器
         stopCollisionCheckTimer()
 
+        // 立即执行一次检测
+        performCollisionCheck()
+
         // 每 10 秒检测一次
+        // 注意：由于 MapTabView 是 struct，不能在 Timer 闭包中直接调用实例方法
+        // 因此需要通过通知机制来触发检测
         collisionCheckTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { _ in
-            Task { @MainActor in
-                performCollisionCheck()
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .triggerCollisionCheck, object: nil)
             }
         }
 
-        TerritoryLogger.shared.log("碰撞检测定时器已启动", type: .info)
+        TerritoryLogger.shared.log("碰撞检测定时器已启动（每10秒）", type: .info)
     }
 
     /// Day 19: 仅停止定时器（不清除警告状态）
@@ -659,13 +715,27 @@ struct MapTabView: View {
 
     /// Day 19: 执行碰撞检测
     private func performCollisionCheck() {
-        guard locationManager.isTracking,
-              let userId = currentUserId else {
+        // ⚠️ Debug: 检查为什么碰撞检测不工作
+        if !locationManager.isTracking {
+            print("❌ 碰撞检测跳过：未在追踪状态")
             return
         }
 
+        guard let userId = currentUserId else {
+            print("❌ 碰撞检测跳过：currentUserId 为空")
+            TerritoryLogger.shared.log("碰撞检测失败：用户ID为空", type: .error)
+            return
+        }
+
+        print("✅ 开始执行碰撞检测，userId: \(userId)")
+        print("   pathCoordinates.count: \(locationManager.pathCoordinates.count)")
+        print("   territoriesManager.territories.count: \(territoryManager.territories.count)")
+
         let path = locationManager.pathCoordinates
-        guard path.count >= 2 else { return }
+        guard path.count >= 2 else {
+            print("⚠️ 路径点数不足2，跳过检测")
+            return
+        }
 
         // 获取当前位置
         guard let currentLocation = locationManager.userLocation else { return }

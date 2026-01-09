@@ -199,14 +199,21 @@ class TerritoryManager {
     ///   - excludeUserId: 排除自己的用户 ID
     /// - Returns: 碰撞检测结果
     func checkPointCollision(point: CLLocationCoordinate2D, excludeUserId: String?) -> CollisionResult {
+        print("🔍 checkPointCollision - territories.count: \(territories.count), excludeUserId: \(excludeUserId ?? "nil")")
+        print("🔍 检测点坐标: (\(point.latitude), \(point.longitude))")
+
         for territory in territories {
             // 排除自己的领地（UUID 比较需要统一小写）
             if let excludeId = excludeUserId, territory.userId.lowercased() == excludeId.lowercased() {
+                print("  ⏭️ 跳过自己的领地: \(territory.displayName)")
                 continue
             }
 
             let polygon = territory.toCoordinates()
+            print("  🔎 检查领地: \(territory.displayName), 点数: \(polygon.count)")
+
             if isPointInPolygon(point: point, polygon: polygon) {
+                print("  ❌ 碰撞！点在领地 \(territory.displayName) 内")
                 return CollisionResult(
                     hasCollision: true,
                     collisionType: .pointInTerritory,
@@ -218,6 +225,7 @@ class TerritoryManager {
             }
         }
 
+        print("  ✅ 点不在任何领地内")
         return CollisionResult.safe
     }
 

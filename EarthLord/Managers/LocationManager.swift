@@ -78,9 +78,16 @@ class LocationManager: NSObject, ObservableObject {
     /// 新点距离阈值（米）
     private let minimumDistanceForNewPoint: Double = 10.0
 
-    /// GPS精度阈值（米）
-    /// 如果 horizontalAccuracy > 20米，说明GPS信号差，位置不可靠
-    private let maximumAcceptableAccuracy: Double = 20.0
+    /// GPS精度阈值（米）- 用于速度检测
+    /// 如果 horizontalAccuracy > 25米，跳过速度检测
+    private let maximumAcceptableAccuracy: Double = 25.0
+
+    /// GPS精度阈值（米）- 用于丢弃点
+    /// 如果 horizontalAccuracy > 50米，直接丢弃该点，不记录
+    private let maximumAccuracyForRecording: Double = 50.0
+
+    /// 连续低精度点计数（用于减少日志频率）
+    private var lowAccuracyCount: Int = 0
 
     /// 速度警告阈值（km/h）
     /// ✅ 修复：从15提高到25，避免GPS漂移误判（正常快走6-8 km/h，慢跑10-12 km/h）
@@ -194,6 +201,17 @@ class LocationManager: NSObject, ObservableObject {
 
         // 记录日志
         TerritoryLogger.shared.log("停止追踪，共 \(pathCoordinates.count) 个点", type: .info)
+
+        // ⚠️ 重置所有状态（防止重复上传）
+        pathCoordinates = []
+        pathUpdateVersion = 0
+        isPathClosed = false
+        territoryValidationPassed = false
+        territoryValidationError = nil
+        calculatedArea = 0
+        speedWarning = nil
+        isOverSpeed = false
+        lastLocationTimestamp = nil
     }
 
     /// 清除路径
@@ -213,13 +231,27 @@ class LocationManager: NSObject, ObservableObject {
     }
 
     /// 记录路径点（定时器回调）
-    /// ⚠️ 关键：先检查距离，再检查速度！顺序不能反！
+    /// ⚠️ 关键：先检查GPS精度，再检查距离，最后检查速度！
     private func recordPathPoint() {
         guard isTracking else { return }
         guard let location = currentLocation else {
             print("⚠️ 当前位置为空，跳过记录")
             return
         }
+
+        // 步骤0：检查 GPS 精度（过滤严重漂移点）
+        let accuracy = location.horizontalAccuracy
+        if accuracy > maximumAccuracyForRecording {
+            // GPS 精度太差（>50m），直接丢弃该点
+            lowAccuracyCount += 1
+            // 每 5 次才打印一次日志，减少日志刷屏
+            if lowAccuracyCount % 5 == 1 {
+                print("📡 GPS精度太差（\(String(format: "%.1f", accuracy))m），丢弃该点")
+                TerritoryLogger.shared.log("GPS精度太差（\(String(format: "%.0f", accuracy))m），已丢弃", type: .warning)
+            }
+            return
+        }
+        lowAccuracyCount = 0  // 重置计数
 
         // 步骤1：先检查距离（过滤 GPS 漂移，距离不够就直接返回）
         var distanceFromLast: Double = 0
@@ -228,8 +260,8 @@ class LocationManager: NSObject, ObservableObject {
             distanceFromLast = location.distance(from: lastLocation)
 
             guard distanceFromLast >= minimumDistanceForNewPoint else {
-                print("📏 距离上个点 \(String(format: "%.1f", distanceFromLast))米，不记录")
-                return  // 距离不够，不进行速度检测，直接返回
+                // 距离不够，不打印日志（避免刷屏）
+                return
             }
         }
 
@@ -242,12 +274,11 @@ class LocationManager: NSObject, ObservableObject {
         pathCoordinates.append(location.coordinate)
         pathUpdateVersion += 1
         let pointCount = pathCoordinates.count
-        print("📍 记录路径点 #\(pointCount): 纬度 \(location.coordinate.latitude), 经度 \(location.coordinate.longitude)")
 
         // 步骤4：更新时间戳（只有成功记录点后才更新）
         lastLocationTimestamp = Date()
 
-        // 步骤5：记录日志
+        // 步骤5：记录日志（简化输出）
         if pointCount == 1 {
             TerritoryLogger.shared.log("记录第 1 个点（起点）", type: .info)
         } else {
@@ -327,9 +358,8 @@ class LocationManager: NSObject, ObservableObject {
         // ✅ 修复：GPS精度检查（防止漂移导致的误判）
         let accuracy = newLocation.horizontalAccuracy
         if accuracy > maximumAcceptableAccuracy {
-            print("📡 GPS精度较差（\(String(format: "%.1f", accuracy))m > \(Int(maximumAcceptableAccuracy))m），跳过速度检测")
-            TerritoryLogger.shared.log("GPS精度较差 \(String(format: "%.1f", accuracy))m，跳过速度检测", type: .warning)
             // 精度差的位置依然记录，但不进行速度检测，避免误判
+            // 不打印日志，减少刷屏
             return true
         }
 
@@ -340,14 +370,17 @@ class LocationManager: NSObject, ObservableObject {
         // ✅ 修复：时间间隔太短（<5秒），不进行速度检测，避免误判
         // GPS 更新和距离累积需要时间，太短的间隔容易因为 GPS 漂移导致高速度
         guard timeDiff >= 5.0 else {
-            print("⏱️ 速度检测：时间间隔过短（\(String(format: "%.1f", timeDiff))秒 < 5秒），跳过检测")
+            // 时间间隔太短，不打印日志
             return true
         }
 
         // 计算速度（km/h）
         let speed = (distance / timeDiff) * 3.6
 
-        print("🚗 速度检测：\(String(format: "%.1f", speed)) km/h（距离 \(String(format: "%.1f", distance))米，时间 \(String(format: "%.1f", timeDiff))秒，GPS精度 \(String(format: "%.1f", accuracy))米）")
+        // 只有超速才打印日志
+        if speed > speedWarningThreshold {
+            print("🚗 速度检测：\(String(format: "%.1f", speed)) km/h（距离 \(String(format: "%.1f", distance))m，时间 \(String(format: "%.1f", timeDiff))s）")
+        }
 
         // 严重超速（>30 km/h），停止追踪
         if speed > speedLimitThreshold {

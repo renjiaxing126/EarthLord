@@ -63,6 +63,9 @@
         }
       }
     },
+    "上传中..." : {
+
+    },
     "两次密码不一致" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -153,6 +156,18 @@
     "停止圈地" : {
 
     },
+    "关闭" : {
+
+    },
+    "删除" : {
+
+    },
+    "删除中..." : {
+
+    },
+    "删除失败" : {
+
+    },
     "删除账户" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -164,6 +179,12 @@
         }
       }
     },
+    "删除领地" : {
+
+    },
+    "前往地图开始圈地吧！" : {
+
+    },
     "功能开发中..." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -174,6 +195,9 @@
           }
         }
       }
+    },
+    "加载失败" : {
+
     },
     "危险区域" : {
       "extractionState" : "stale",
@@ -198,7 +222,6 @@
       }
     },
     "取消" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -317,6 +340,9 @@
     "导出日志" : {
 
     },
+    "已记录 %lld 个点，确定要停止吗？停止后当前路径将被清空。" : {
+
+    },
     "常见问题与反馈" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -369,6 +395,9 @@
           }
         }
       }
+    },
+    "我的领地" : {
+
     },
     "或者使用以下方式登录" : {
       "extractionState" : "stale",
@@ -436,6 +465,9 @@
         }
       }
     },
+    "敬请期待" : {
+
+    },
     "新密码（至少6位）" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -450,6 +482,9 @@
     "暂无日志" : {
 
     },
+    "暂无领地" : {
+
+    },
     "更多" : {
       "localizations" : {
         "en" : {
@@ -461,7 +496,6 @@
       }
     },
     "更多功能" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -646,6 +680,12 @@
         }
       }
     },
+    "确定" : {
+
+    },
+    "确定要删除这个领地吗？此操作无法撤销。" : {
+
+    },
     "确定要退出登录吗？" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -657,8 +697,13 @@
         }
       }
     },
+    "确认停止" : {
+
+    },
+    "确认停止圈地" : {
+
+    },
     "确认删除" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -690,7 +735,11 @@
         }
       }
     },
+    "确认登记领地" : {
+
+    },
     "管理你的领地" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -699,6 +748,9 @@
           }
         }
       }
+    },
+    "继续圈地" : {
+
     },
     "编辑用户名、头像" : {
       "extractionState" : "stale",
@@ -908,6 +960,12 @@
           }
         }
       }
+    },
+    "领地信息" : {
+
+    },
+    "领地登记成功！" : {
+
     },
     "验证" : {
       "extractionState" : "stale",
