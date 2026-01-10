@@ -30,6 +30,10 @@ struct MapTabView: View {
     @State private var showCollisionWarning = false
     @State private var collisionWarningLevel: WarningLevel = .safe
 
+    // MARK: - 探索功能状态
+    @State private var isExploring = false
+    @State private var showExplorationResult = false
+
     var body: some View {
         ZStack {
             // 地图视图
@@ -81,23 +85,22 @@ struct MapTabView: View {
                 Spacer()
             }
 
-            // 圈地按钮和确认登记按钮（右下角）
+            // 底部按钮行
             VStack {
                 Spacer()
-                HStack {
-                    Spacer()
-                    VStack(spacing: 12) {
-                        // 确认登记按钮（验证通过时显示）
-                        if locationManager.territoryValidationPassed {
-                            confirmButton
-                        }
 
-                        // 圈地按钮
-                        claimButton
+                // 确认登记按钮（验证通过时显示在顶部）
+                if locationManager.territoryValidationPassed {
+                    HStack {
+                        Spacer()
+                        confirmButton
+                            .padding(.trailing, 16)
                     }
                 }
+
+                // 底部三按钮行：开始圈地 | 定位 | 探索
+                bottomButtonBar
             }
-            .padding(.trailing, 16)
             .padding(.bottom, 100) // 避开底部 Tab Bar
 
             // 权限请求或错误提示
@@ -145,6 +148,11 @@ struct MapTabView: View {
                 await loadTerritories()
             }
         }
+        .onDisappear {
+            print("🗺️ MapTabView 消失")
+            // 清理碰撞检测定时器，防止内存泄漏
+            stopCollisionCheckTimer()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .territoryUpdated)) { _ in
             // 收到领地更新通知（删除后），刷新地图上的领地
             Task {
@@ -154,6 +162,12 @@ struct MapTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .triggerCollisionCheck)) { _ in
             // Day 19: 收到碰撞检测触发通知（定时器触发）
             performCollisionCheck()
+        }
+        .sheet(isPresented: $showExplorationResult) {
+            ExplorationResultView(
+                stats: MockExplorationData.mockExplorationResult.stats,
+                reward: MockExplorationData.mockExplorationResult.reward
+            )
         }
     }
 
@@ -487,6 +501,85 @@ struct MapTabView: View {
         .disabled(isUploading)
     }
 
+    /// 底部按钮栏（三个按钮水平排列）
+    private var bottomButtonBar: some View {
+        HStack(spacing: 12) {
+            // 左侧：开始圈地按钮
+            claimButton
+                .frame(maxWidth: .infinity)
+
+            // 中间：定位按钮
+            locationButton
+                .frame(width: 60)
+
+            // 右侧：探索按钮
+            exploreButton
+                .frame(maxWidth: .infinity)
+        }
+        .padding(.horizontal, 16)
+    }
+
+    /// 定位按钮
+    private var locationButton: some View {
+        Button {
+            // 定位到当前位置
+            if let location = locationManager.userLocation {
+                // 这里可以添加地图定位逻辑，暂时只触发震动反馈
+                let generator = UIImpactFeedbackGenerator(style: .light)
+                generator.impactOccurred()
+            }
+        } label: {
+            Image(systemName: "location.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: 60, height: 50)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(ApocalypseTheme.primary)
+                        .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+                )
+        }
+        .disabled(!locationManager.isAuthorized)
+        .opacity(locationManager.isAuthorized ? 1.0 : 0.5)
+    }
+
+    /// 探索按钮
+    private var exploreButton: some View {
+        Button {
+            performExploration()
+        } label: {
+            HStack(spacing: 8) {
+                if isExploring {
+                    // 加载状态
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(0.8)
+
+                    Text("探索中...")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                } else {
+                    // 正常状态
+                    Image(systemName: "binoculars.fill")
+                        .font(.system(size: 16, weight: .semibold))
+
+                    Text("探索")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+            }
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isExploring ? ApocalypseTheme.textMuted : ApocalypseTheme.primary)
+                    .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+            )
+        }
+        .disabled(!locationManager.isAuthorized || isExploring)
+        .opacity(locationManager.isAuthorized && !isExploring ? 1.0 : 0.6)
+    }
+
     // MARK: - 方法
 
     /// 检查定位权限
@@ -560,10 +653,8 @@ struct MapTabView: View {
             stopCollisionMonitoring()  // Day 19: 完全停止，清除警告
             locationManager.stopPathTracking()
 
-            // 刷新领地列表（地图上的领地）
-            await loadTerritories()
-
-            // 发送通知，让领地 Tab 也刷新
+            // 发送通知，让所有监听者刷新领地（包括本视图）
+            // 注意：不在这里直接调用 loadTerritories()，避免重复加载
             NotificationCenter.default.post(name: .territoryUpdated, object: nil)
 
             // 3秒后隐藏成功消息
@@ -898,6 +989,21 @@ struct MapTabView: View {
                 .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
         )
         .padding(.horizontal, 16)
+    }
+
+    /// 执行探索
+    private func performExploration() {
+        // 开始探索
+        isExploring = true
+
+        // 模拟 1.5 秒的搜索过程
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation {
+                isExploring = false
+            }
+            // 显示探索结果
+            showExplorationResult = true
+        }
     }
 
     // MARK: - 错误处理
