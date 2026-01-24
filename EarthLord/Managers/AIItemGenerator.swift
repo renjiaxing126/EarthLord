@@ -8,6 +8,7 @@
 
 import Foundation
 import Supabase
+import Auth
 
 // MARK: - Request Models
 
@@ -84,8 +85,15 @@ class AIItemGenerator {
         print("═══════════════════════════════════════════════════")
 
         do {
-            // 获取当前session
-            let session = try await supabase.auth.session
+            // 获取当前会话（用于JWT认证）
+            var accessToken: String? = nil
+            do {
+                let session = try await supabase.auth.session
+                accessToken = session.accessToken
+                print("✅ [AIItemGenerator] 用户已登录，使用JWT认证")
+            } catch {
+                print("⚠️ [AIItemGenerator] 未登录或会话无效，尝试无认证请求")
+            }
 
             // 构建请求体
             let request = AIItemRequest(
@@ -97,13 +105,22 @@ class AIItemGenerator {
                 itemCount: count
             )
 
+            print("📡 [AIItemGenerator] 调用 Edge Function: generate-ai-item")
+
             // 调用Edge Function
-            let response: AIItemResponse = try await supabase.functions.invoke(
-                "generate-ai-item",
-                options: FunctionInvokeOptions(
-                    headers: ["Authorization": "Bearer \(session.accessToken)"],
+            let options: FunctionInvokeOptions
+            if let token = accessToken {
+                options = FunctionInvokeOptions(
+                    headers: ["Authorization": "Bearer \(token)"],
                     body: request
                 )
+            } else {
+                options = FunctionInvokeOptions(body: request)
+            }
+
+            let response: AIItemResponse = try await supabase.functions.invoke(
+                "generate-ai-item",
+                options: options
             )
 
             // 检查响应

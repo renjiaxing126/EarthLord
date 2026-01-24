@@ -11,6 +11,7 @@ import Supabase
 
 struct MapTabView: View {
     @StateObject private var locationManager = LocationManager.shared
+    @StateObject private var explorationManager = ExplorationManager.shared
     private let territoryManager = TerritoryManager.shared
     @EnvironmentObject var languageManager: LanguageManager
     @State private var showSpeedWarning = false
@@ -31,8 +32,11 @@ struct MapTabView: View {
     @State private var collisionWarningLevel: WarningLevel = .safe
 
     // MARK: - 探索功能状态
-    @State private var isExploring = false
     @State private var showExplorationResult = false
+    @State private var explorationRewards: [GeneratedRewardItem] = []
+    @State private var explorationDistance: Double = 0
+    @State private var explorationDuration: TimeInterval = 0
+    @State private var explorationTier: RewardTier = .none
 
     var body: some View {
         ZStack {
@@ -44,7 +48,16 @@ struct MapTabView: View {
                 isTracking: locationManager.isTracking,
                 isPathClosed: locationManager.isPathClosed,
                 territories: territories,
-                currentUserId: currentUserId
+                currentUserId: currentUserId,
+                explorablePOIs: explorationManager.nearbyPOIs,
+                poiUpdateVersion: explorationManager.poiUpdateVersion,
+                onPOITapped: { poi in
+                    // 点击POI时的处理（可选：手动触发搜刮弹窗）
+                    if !poi.isScavenged && explorationManager.isExploring {
+                        explorationManager.currentApproachingPOI = poi
+                        explorationManager.showPOIPopup = true
+                    }
+                }
             )
             .ignoresSafeArea()
 
@@ -82,15 +95,29 @@ struct MapTabView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
+                // 探索超速警告横幅
+                if explorationManager.isOverSpeed {
+                    explorationSpeedWarningBanner
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
+                // 旧的探索状态横幅已移到底部
+
+                // 探索失败横幅
+                if explorationManager.state == .failed {
+                    explorationFailedBanner
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
                 Spacer()
             }
 
-            // 底部按钮行
+            // 底部区域
             VStack {
                 Spacer()
 
                 // 确认登记按钮（验证通过时显示在顶部）
-                if locationManager.territoryValidationPassed {
+                if locationManager.territoryValidationPassed && !explorationManager.isExploring {
                     HStack {
                         Spacer()
                         confirmButton
@@ -98,10 +125,17 @@ struct MapTabView: View {
                     }
                 }
 
-                // 底部三按钮行：开始圈地 | 定位 | 探索
-                bottomButtonBar
+                // 探索状态面板（探索进行中显示）
+                if explorationManager.isExploring {
+                    explorationStatusPanel
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else {
+                    // 底部三按钮行：开始圈地 | 定位 | 探索
+                    bottomButtonBar
+                }
             }
             .padding(.bottom, 100) // 避开底部 Tab Bar
+            .animation(.easeInOut(duration: 0.3), value: explorationManager.isExploring)
 
             // 权限请求或错误提示
             if locationManager.isDenied {
@@ -164,10 +198,65 @@ struct MapTabView: View {
             performCollisionCheck()
         }
         .sheet(isPresented: $showExplorationResult) {
-            ExplorationResultView(
-                stats: MockExplorationData.mockExplorationResult.stats,
-                reward: MockExplorationData.mockExplorationResult.reward
+            // 使用真实探索数据
+            if explorationTier == .none {
+                // 距离不足，显示错误状态
+                ExplorationResultView(error: "探索距离不足200米，无法获得奖励。请继续行走探索！")
+            } else {
+                // 有奖励，显示成功状态
+                let stats = ExplorationStats(
+                    walkDistance: explorationDistance,
+                    explorationTime: explorationDuration,
+                    totalWalkDistance: explorationDistance, // TODO: 累计数据需要从数据库获取
+                    distanceRank: 99 // TODO: 排名需要从数据库获取
+                )
+                let reward = ExplorationReward(
+                    items: RewardGenerator.shared.convertToLegacyRewards(explorationRewards)
+                )
+                ExplorationResultView(stats: stats, reward: reward, tier: explorationTier)
+            }
+        }
+        // POI接近弹窗
+        .sheet(isPresented: $explorationManager.showPOIPopup) {
+            if let poi = explorationManager.currentApproachingPOI {
+                POIProximitySheet(
+                    poi: poi,
+                    userLocation: locationManager.userLocation,
+                    onScavenge: {
+                        _ = await explorationManager.scavengePOI(poi)
+                    },
+                    onDismiss: {
+                        explorationManager.dismissPOIPopup()
+                    }
+                )
+            }
+        }
+        // POI搜刮结果弹窗
+        .sheet(isPresented: $explorationManager.showScavengeResult) {
+            ScavengeResultView(
+                poi: explorationManager.currentApproachingPOI,
+                rewards: explorationManager.lastScavengeRewards
             )
+        }
+        .onChange(of: explorationManager.showScavengeResult) {
+            // 搜刮结果弹窗关闭时清理状态
+            if !explorationManager.showScavengeResult {
+                explorationManager.dismissScavengeResult()
+            }
+        }
+        .onChange(of: showExplorationResult) {
+            // 当结果页面关闭时，完成结算
+            if !showExplorationResult {
+                Task {
+                    // 只有有奖励时才保存到背包
+                    if explorationTier != .none {
+                        await InventoryManager.shared.addItems(explorationRewards, source: "exploration")
+                    }
+                    // 无论有没有奖励都要重置状态！
+                    explorationManager.finishSettlement()
+                    print("✅ [MapTabView] 结算完成，状态已重置")
+                }
+            }
         }
     }
 
@@ -546,20 +635,18 @@ struct MapTabView: View {
     /// 探索按钮
     private var exploreButton: some View {
         Button {
-            performExploration()
+            toggleExploration()
         } label: {
             HStack(spacing: 8) {
-                if isExploring {
-                    // 加载状态
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(0.8)
-
-                    Text("探索中...")
+                if explorationManager.isExploring {
+                    // 探索中状态 - 显示结束探索
+                    Image(systemName: "stop.fill")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
+
+                    Text("结束探索")
+                        .font(.system(size: 16, weight: .semibold))
                 } else {
-                    // 正常状态
+                    // 空闲状态 - 显示开始探索
                     Image(systemName: "binoculars.fill")
                         .font(.system(size: 16, weight: .semibold))
 
@@ -572,12 +659,12 @@ struct MapTabView: View {
             .frame(height: 50)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(isExploring ? ApocalypseTheme.textMuted : ApocalypseTheme.primary)
+                    .fill(explorationManager.isExploring ? Color.red : ApocalypseTheme.primary)
                     .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
             )
         }
-        .disabled(!locationManager.isAuthorized || isExploring)
-        .opacity(locationManager.isAuthorized && !isExploring ? 1.0 : 0.6)
+        .disabled(!locationManager.isAuthorized)
+        .opacity(locationManager.isAuthorized ? 1.0 : 0.6)
     }
 
     // MARK: - 方法
@@ -991,19 +1078,269 @@ struct MapTabView: View {
         .padding(.horizontal, 16)
     }
 
-    /// 执行探索
-    private func performExploration() {
-        // 开始探索
-        isExploring = true
+    /// 切换探索状态（开始/结束）
+    private func toggleExploration() {
+        if explorationManager.isExploring {
+            // 结束探索
+            print("🛑 [MapTabView] 用户点击结束探索")
 
-        // 模拟 1.5 秒的搜索过程
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            withAnimation {
-                isExploring = false
+            // 获取探索结果
+            let result = explorationManager.stopExploration()
+            explorationDistance = result.distance
+            explorationDuration = result.duration
+            explorationTier = result.tier
+
+            // 生成奖励
+            if result.tier != .none {
+                explorationRewards = RewardGenerator.shared.generateRewards(distance: result.distance)
+                print("🎁 [MapTabView] 生成奖励: \(explorationRewards.count) 种物品")
+            } else {
+                explorationRewards = []
+                print("⚠️ [MapTabView] 距离不足，无奖励")
             }
-            // 显示探索结果
+
+            // 显示结果页面
             showExplorationResult = true
+        } else {
+            // 开始探索
+            print("🚀 [MapTabView] 用户点击开始探索")
+            explorationManager.startExploration()
         }
+    }
+
+    /// 探索状态面板（底部深色半透明设计）
+    private var explorationStatusPanel: some View {
+        let currentTier = RewardGenerator.calculateTier(distance: explorationManager.totalDistance)
+        let nextTierInfo = RewardGenerator.distanceToNextTier(distance: explorationManager.totalDistance)
+
+        return VStack(spacing: 0) {
+            // 信息区域
+            VStack(spacing: 12) {
+                // 标题行：探索进行中 + 时间
+                HStack {
+                    // 左侧：绿点 + 标题
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 10, height: 10)
+
+                        Text("探索进行中")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Color(hex: "999999"))
+                    }
+
+                    Spacer()
+
+                    // 右侧：时间
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color(hex: "999999"))
+                        Text(explorationManager.formatDuration(explorationManager.duration))
+                            .font(.system(size: 14, weight: .medium, design: .monospaced))
+                            .foregroundColor(Color(hex: "999999"))
+                    }
+                }
+
+                // 核心数据行
+                HStack(alignment: .bottom) {
+                    // 左侧：行走距离
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("行走距离")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color(hex: "999999"))
+
+                        HStack(alignment: .firstTextBaseline, spacing: 2) {
+                            Text("\(Int(explorationManager.totalDistance))")
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                            Text("m")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.white)
+                        }
+                    }
+
+                    Spacer()
+
+                    // 右侧：奖励等级
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text("奖励等级")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color(hex: "999999"))
+
+                        HStack(spacing: 6) {
+                            Image(systemName: currentTier == .none ? "xmark.circle" : currentTier.icon)
+                                .font(.system(size: 16))
+                                .foregroundColor(currentTier == .none ? Color(hex: "999999") : currentTier.color)
+
+                            Text(currentTier == .none ? "无奖励" : currentTier.rawValue)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(currentTier == .none ? Color(hex: "999999") : currentTier.color)
+                        }
+
+                        Text("\(explorationManager.nearbyPOIs.count) 件物品")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color(hex: "999999"))
+                    }
+                }
+
+                // 进度条和升级提示
+                VStack(spacing: 8) {
+                    // 进度条
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            // 背景
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color(hex: "333333"))
+                                .frame(height: 4)
+
+                            // 进度 - 计算当前等级内的进度
+                            let progress = calculateTierProgress(distance: explorationManager.totalDistance)
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color.white)
+                                .frame(width: geometry.size.width * CGFloat(progress), height: 4)
+                        }
+                    }
+                    .frame(height: 4)
+
+                    // 升级提示文字
+                    if let next = nextTierInfo {
+                        Text("再走 \(Int(next.remaining)) 米升级到 \(next.nextTier.rawValue)")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color(hex: "999999"))
+                    } else {
+                        Text("已达最高等级!")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color(hex: "999999"))
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
+
+            // 停止探索按钮
+            Button {
+                toggleExploration()
+            } label: {
+                HStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.white)
+                        .frame(width: 14, height: 14)
+
+                    Text("停止探索")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .background(Color(hex: "FF3B30"))
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.black.opacity(0.85))
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 16)
+    }
+
+    /// 探索超速警告横幅
+    private var explorationSpeedWarningBanner: some View {
+        HStack(spacing: 12) {
+            // 警告图标
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.white)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("⚠️ 速度过快！")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.white)
+
+                HStack(spacing: 8) {
+                    // 当前速度
+                    Text("当前速度: \(String(format: "%.1f", explorationManager.currentSpeed)) km/h")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.9))
+
+                    // 倒计时
+                    if explorationManager.speedViolationCountdown > 0 {
+                        Text("(\(explorationManager.speedViolationCountdown)秒后停止)")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.yellow)
+                    }
+                }
+            }
+
+            Spacer()
+
+            // 速度限制提示
+            VStack(spacing: 2) {
+                Text("限速")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+                Text("20")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                Text("km/h")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.white.opacity(0.2))
+            )
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.orange)
+                .shadow(color: .red.opacity(0.5), radius: 8, x: 0, y: 4)
+        )
+        .padding(.horizontal, 16)
+    }
+
+    /// 探索失败横幅
+    private var explorationFailedBanner: some View {
+        HStack(spacing: 12) {
+            // 失败图标
+            Image(systemName: "xmark.octagon.fill")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.white)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("探索失败")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.white)
+
+                Text(explorationManager.errorMessage ?? "未知错误")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white.opacity(0.9))
+            }
+
+            Spacer()
+
+            // 关闭按钮
+            Button {
+                explorationManager.resetAfterFailure()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 24))
+                    .foregroundColor(.white.opacity(0.8))
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.red)
+                .shadow(color: .red.opacity(0.5), radius: 8, x: 0, y: 4)
+        )
+        .padding(.horizontal, 16)
     }
 
     // MARK: - 错误处理
@@ -1032,9 +1369,54 @@ struct MapTabView: View {
         // 未知错误，返回通用提示
         return "上传失败，请稍后再试"
     }
+
+    /// 计算当前等级内的进度 (0.0 - 1.0)
+    private func calculateTierProgress(distance: Double) -> Double {
+        // 等级阈值: 0-200(铜), 200-500(银), 500-1000(金), 1000-2000(钻)
+        switch distance {
+        case ..<200:
+            return distance / 200.0
+        case 200..<500:
+            return (distance - 200) / 300.0
+        case 500..<1000:
+            return (distance - 500) / 500.0
+        case 1000..<2000:
+            return (distance - 1000) / 1000.0
+        default:
+            return 1.0 // 已达最高等级
+        }
+    }
 }
 
 #Preview {
     MapTabView()
         .environmentObject(LanguageManager.shared)
+}
+
+// MARK: - Color Hex Extension
+
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (1, 1, 1, 0)
+        }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue:  Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
 }

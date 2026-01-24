@@ -144,16 +144,13 @@ struct ItemDefinition {
 struct ExplorationStats {
     // 本次探索
     let walkDistance: Double        // 行走距离（米）
-    let exploredArea: Double        // 探索面积（平方米）
     let explorationTime: TimeInterval  // 探索时长（秒）
 
     // 累计数据
     let totalWalkDistance: Double   // 累计行走距离（米）
-    let totalExploredArea: Double   // 累计探索面积（平方米）
 
     // 排名
     let distanceRank: Int           // 距离排名
-    let areaRank: Int               // 面积排名
 }
 
 /// 探索收获
@@ -405,16 +402,13 @@ class MockExplorationData {
         let stats = ExplorationStats(
             // 本次探索
             walkDistance: 2500.0,           // 本次行走 2500 米
-            exploredArea: 50000.0,          // 本次探索 5 万平方米
             explorationTime: 30 * 60,       // 探索时长 30 分钟
 
             // 累计数据
             totalWalkDistance: 15000.0,     // 累计行走 15000 米
-            totalExploredArea: 250000.0,    // 累计探索 25 万平方米
 
             // 排名
-            distanceRank: 42,               // 距离排名第 42
-            areaRank: 38                    // 面积排名第 38
+            distanceRank: 42                // 距离排名第 42
         )
 
         let reward = ExplorationReward(

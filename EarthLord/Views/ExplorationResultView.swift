@@ -13,6 +13,7 @@ struct ExplorationResultView: View {
 
     let stats: ExplorationStats?
     let reward: ExplorationReward?
+    let rewardTier: RewardTier?
     let error: String?
 
     // MARK: - Environment
@@ -30,8 +31,6 @@ struct ExplorationResultView: View {
     /// 数字动画状态
     @State private var animatedWalkDistance: Double = 0
     @State private var animatedWalkDistanceTotal: Double = 0
-    @State private var animatedArea: Double = 0
-    @State private var animatedAreaTotal: Double = 0
 
     /// 奖励物品动画状态
     @State private var visibleRewardsCount = 0
@@ -44,9 +43,10 @@ struct ExplorationResultView: View {
     // MARK: - 初始化
 
     /// 成功状态初始化
-    init(stats: ExplorationStats, reward: ExplorationReward) {
+    init(stats: ExplorationStats, reward: ExplorationReward, tier: RewardTier = .bronze) {
         self.stats = stats
         self.reward = reward
+        self.rewardTier = tier
         self.error = nil
     }
 
@@ -54,6 +54,7 @@ struct ExplorationResultView: View {
     init(error: String) {
         self.stats = nil
         self.reward = nil
+        self.rewardTier = nil
         self.error = error
     }
 
@@ -127,13 +128,14 @@ struct ExplorationResultView: View {
         VStack(spacing: 20) {
             // 大图标（带装饰效果）
             ZStack {
-                // 外圈光晕
+                // 外圈光晕 - 根据等级使用不同颜色
+                let tierColor = rewardTier?.color ?? ApocalypseTheme.success
                 Circle()
                     .fill(
                         RadialGradient(
                             colors: [
-                                ApocalypseTheme.success.opacity(0.3),
-                                ApocalypseTheme.success.opacity(0.1),
+                                tierColor.opacity(0.3),
+                                tierColor.opacity(0.1),
                                 .clear
                             ],
                             center: .center,
@@ -148,18 +150,18 @@ struct ExplorationResultView: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                ApocalypseTheme.success,
-                                ApocalypseTheme.success.opacity(0.7)
+                                tierColor,
+                                tierColor.opacity(0.7)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                     .frame(width: 100, height: 100)
-                    .shadow(color: ApocalypseTheme.success.opacity(0.5), radius: 20, x: 0, y: 10)
+                    .shadow(color: tierColor.opacity(0.5), radius: 20, x: 0, y: 10)
 
-                // 地图图标
-                Image(systemName: "map.fill")
+                // 等级图标
+                Image(systemName: rewardTier?.icon ?? "map.fill")
                     .font(.system(size: 50, weight: .bold))
                     .foregroundColor(.white)
 
@@ -177,11 +179,38 @@ struct ExplorationResultView: View {
             }
             .padding(.top, 20)
 
-            // 大文字
-            VStack(spacing: 8) {
+            // 大文字和等级徽章
+            VStack(spacing: 12) {
                 Text("探索完成！")
                     .font(.system(size: 32, weight: .heavy))
                     .foregroundColor(ApocalypseTheme.textPrimary)
+
+                // 等级徽章
+                if let tier = rewardTier {
+                    HStack(spacing: 8) {
+                        Image(systemName: tier.icon)
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(tier.color)
+
+                        Text(tier.rawValue)
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(tier.color)
+
+                        Text("奖励")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(ApocalypseTheme.textSecondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(tier.color.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .strokeBorder(tier.color.opacity(0.3), lineWidth: 1)
+                            )
+                    )
+                }
 
                 Text("成功探索新区域")
                     .font(.system(size: 16, weight: .medium))
@@ -221,19 +250,6 @@ struct ExplorationResultView: View {
                         current: formatDistance(animatedWalkDistance),
                         total: formatDistance(animatedWalkDistanceTotal),
                         rank: stats.distanceRank
-                    )
-
-                    Divider()
-                        .background(ApocalypseTheme.textMuted.opacity(0.3))
-                        .padding(.horizontal, 16)
-
-                    // 探索面积
-                    statRow(
-                        icon: "map",
-                        title: "探索面积",
-                        current: formatArea(animatedArea),
-                        total: formatArea(animatedAreaTotal),
-                        rank: stats.areaRank
                     )
 
                     Divider()
@@ -612,8 +628,6 @@ struct ExplorationResultView: View {
             withAnimation(.easeOut(duration: 0.8)) {
                 animatedWalkDistance = stats.walkDistance
                 animatedWalkDistanceTotal = stats.totalWalkDistance
-                animatedArea = stats.exploredArea
-                animatedAreaTotal = stats.totalExploredArea
             }
         }
 
@@ -646,15 +660,6 @@ struct ExplorationResultView: View {
         }
     }
 
-    /// 格式化面积
-    private func formatArea(_ squareMeters: Double) -> String {
-        if squareMeters >= 10000 {
-            return String(format: "%.1f万m²", squareMeters / 10000)
-        } else {
-            return String(format: "%.0fm²", squareMeters)
-        }
-    }
-
     /// 格式化时长
     private func formatDuration(_ seconds: TimeInterval) -> String {
         let minutes = Int(seconds) / 60
@@ -668,7 +673,8 @@ struct ExplorationResultView: View {
 #Preview {
     ExplorationResultView(
         stats: MockExplorationData.mockExplorationResult.stats,
-        reward: MockExplorationData.mockExplorationResult.reward
+        reward: MockExplorationData.mockExplorationResult.reward,
+        tier: .gold
     )
 }
 
@@ -678,7 +684,8 @@ struct ExplorationResultView: View {
         .sheet(isPresented: .constant(true)) {
             ExplorationResultView(
                 stats: MockExplorationData.mockExplorationResult.stats,
-                reward: MockExplorationData.mockExplorationResult.reward
+                reward: MockExplorationData.mockExplorationResult.reward,
+                tier: .diamond
             )
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)

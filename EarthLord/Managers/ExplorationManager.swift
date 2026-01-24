@@ -124,6 +124,12 @@ class ExplorationManager: ObservableObject {
     /// 超速开始时间
     private var speedViolationStartTime: Date?
 
+    /// 已搜刮的POI ID集合（持久化）
+    private var scavengedPOIIds: Set<String> = []
+
+    /// UserDefaults键名
+    private let scavengedPOIsKey = "EarthLord_ScavengedPOIs"
+
     // MARK: - Constants
 
     /// GPS精度阈值（米）- 超过此值的点将被丢弃
@@ -159,10 +165,14 @@ class ExplorationManager: ObservableObject {
     // MARK: - Initialization
 
     private init() {
+        // 加载已搜刮的POI IDs
+        loadScavengedPOIs()
+
         print("🔭 [ExplorationManager] 初始化完成")
         print("   - 最大允许速度: \(maxAllowedSpeedKmh) km/h (\(String(format: "%.2f", maxAllowedSpeedMs)) m/s)")
         print("   - 超速容忍时间: \(speedViolationToleranceSeconds) 秒")
         print("   - GPS精度阈值: \(maximumAccuracyThreshold) 米")
+        print("   - 已搜刮POI数量: \(scavengedPOIIds.count)")
     }
 
     // MARK: - Public Methods
@@ -690,17 +700,28 @@ class ExplorationManager: ObservableObject {
             print("🔄 [POI加载] POISearchManager返回: \(pois.count) 个POI")
             os_log("🔄 POISearchManager返回: %{public}d个POI", log: explorationLog, type: .info, pois.count)
 
-            nearbyPOIs = pois
+            // 恢复已搜刮状态
+            var poisWithState = pois
+            var scavengedCount = 0
+            for i in poisWithState.indices {
+                if scavengedPOIIds.contains(poisWithState[i].id) {
+                    poisWithState[i].isScavenged = true
+                    scavengedCount += 1
+                }
+            }
+
+            nearbyPOIs = poisWithState
             poiUpdateVersion += 1  // ⚠️ 关键：触发MapView刷新
 
-            print("✅ [POI加载] 成功！更新了 \(pois.count) 个POI, 版本号: \(poiUpdateVersion)")
-            os_log("✅ POI加载成功: %{public}d个, 版本号: %{public}d",
-                   log: explorationLog, type: .info, pois.count, poiUpdateVersion)
+            print("✅ [POI加载] 成功！更新了 \(pois.count) 个POI, 其中 \(scavengedCount) 个已搜刮, 版本号: \(poiUpdateVersion)")
+            os_log("✅ POI加载成功: %{public}d个(已搜刮%{public}d个), 版本号: %{public}d",
+                   log: explorationLog, type: .info, pois.count, scavengedCount, poiUpdateVersion)
 
             // 打印每个POI的信息
-            for (index, poi) in pois.enumerated() {
+            for (index, poi) in poisWithState.enumerated() {
                 let dist = poi.distance(from: location)
-                print("   \(index + 1). \(poi.name) [\(poi.type.rawValue)] - \(Int(dist))m")
+                let status = poi.isScavenged ? "✓已搜刮" : ""
+                print("   \(index + 1). \(poi.name) [\(poi.type.rawValue)] - \(Int(dist))m \(status)")
             }
         } catch {
             print("❌ [POI加载] 失败: \(error.localizedDescription)")
@@ -759,11 +780,12 @@ class ExplorationManager: ObservableObject {
         // 使用AI生成器生成物品（自动降级到本地生成）
         let rewards = await AIItemGenerator.shared.generateItems(for: poi)
 
-        // 标记为已搜刮
+        // 标记为已搜刮（内存和持久化）
         if let index = nearbyPOIs.firstIndex(where: { $0.id == poi.id }) {
             nearbyPOIs[index].isScavenged = true
             poiUpdateVersion += 1  // 触发地图标记刷新
         }
+        markPOIAsScavenged(poi.id)  // 持久化保存
 
         // 保存奖励
         lastScavengeRewards = rewards
@@ -807,5 +829,40 @@ class ExplorationManager: ObservableObject {
         currentApproachingPOI = nil
         lastScavengeRewards = []
         print("📍 [ExplorationManager] 搜刮结果弹窗已关闭")
+    }
+
+    // MARK: - POI搜刮状态持久化
+
+    /// 加载已搜刮的POI IDs
+    private func loadScavengedPOIs() {
+        if let savedIds = UserDefaults.standard.array(forKey: scavengedPOIsKey) as? [String] {
+            scavengedPOIIds = Set(savedIds)
+            print("📦 [ExplorationManager] 加载已搜刮POI: \(scavengedPOIIds.count) 个")
+        }
+    }
+
+    /// 保存已搜刮的POI IDs
+    private func saveScavengedPOIs() {
+        UserDefaults.standard.set(Array(scavengedPOIIds), forKey: scavengedPOIsKey)
+        print("💾 [ExplorationManager] 保存已搜刮POI: \(scavengedPOIIds.count) 个")
+    }
+
+    /// 标记POI为已搜刮
+    private func markPOIAsScavenged(_ poiId: String) {
+        scavengedPOIIds.insert(poiId)
+        saveScavengedPOIs()
+        print("✅ [ExplorationManager] POI已标记为已搜刮: \(poiId)")
+    }
+
+    /// 检查POI是否已搜刮
+    func isPOIScavenged(_ poiId: String) -> Bool {
+        return scavengedPOIIds.contains(poiId)
+    }
+
+    /// 重置所有POI搜刮状态（用于调试）
+    func resetAllScavengedPOIs() {
+        scavengedPOIIds.removeAll()
+        saveScavengedPOIs()
+        print("🔄 [ExplorationManager] 已重置所有POI搜刮状态")
     }
 }

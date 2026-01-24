@@ -7,6 +7,10 @@
 
 import SwiftUI
 import MapKit
+import os.log
+
+/// POI地图日志器
+private let poiMapLog = OSLog(subsystem: "com.yanshuangren.EarthLord", category: "POIMap")
 
 /// MKMapView 的 SwiftUI 包装器，带末日主题滤镜
 struct MapViewRepresentable: UIViewRepresentable {
@@ -33,6 +37,15 @@ struct MapViewRepresentable: UIViewRepresentable {
     /// 当前用户 ID
     var currentUserId: String?
 
+    /// 可探索的POI列表
+    var explorablePOIs: [ExplorablePOI]
+
+    /// POI更新版本号（用于触发刷新）
+    var poiUpdateVersion: Int
+
+    /// POI点击回调（可选）
+    var onPOITapped: ((ExplorablePOI) -> Void)?
+
     // MARK: - UIViewRepresentable
 
     func makeUIView(context: Context) -> MKMapView {
@@ -51,6 +64,10 @@ struct MapViewRepresentable: UIViewRepresentable {
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
+        // ⚠️ 调试日志：确认updateUIView被调用
+        os_log("🔄 [MapView] updateUIView被调用, POI数量: %{public}d, 版本: %{public}d",
+               log: poiMapLog, type: .debug, explorablePOIs.count, poiUpdateVersion)
+
         // 检查是否需要自动居中
         if let userLocation = locationManager.userLocation,
            !context.coordinator.hasAutoCentered {
@@ -71,6 +88,9 @@ struct MapViewRepresentable: UIViewRepresentable {
 
         // 更新追踪路径
         updateTrackingPath(mapView, context: context)
+
+        // 更新POI标记
+        updatePOIAnnotations(mapView, context: context)
     }
 
     /// 绘制领地多边形
@@ -143,6 +163,75 @@ struct MapViewRepresentable: UIViewRepresentable {
         }
     }
 
+    /// 更新POI标注
+    private func updatePOIAnnotations(_ mapView: MKMapView, context: Context) {
+        // ⚠️ 关键日志：检查POI数据
+        os_log("📍 [POIMap] updatePOIAnnotations 被调用, POI数量: %{public}d",
+               log: poiMapLog, type: .info, explorablePOIs.count)
+        print("📍 [POIMap] updatePOIAnnotations: 收到 \(explorablePOIs.count) 个POI")
+
+        // 获取当前所有POI标注
+        let existingPOIAnnotations = mapView.annotations.compactMap { $0 as? POIAnnotation }
+        os_log("📍 [POIMap] 地图上现有POI标注: %{public}d 个",
+               log: poiMapLog, type: .debug, existingPOIAnnotations.count)
+
+        // 创建现有POI ID集合
+        let existingIds = Set(existingPOIAnnotations.map { $0.poi.id })
+        let newIds = Set(explorablePOIs.map { $0.id })
+
+        // 移除不再存在的POI标注
+        let toRemove = existingPOIAnnotations.filter { !newIds.contains($0.poi.id) }
+        if !toRemove.isEmpty {
+            mapView.removeAnnotations(toRemove)
+            print("📍 [POIMap] 移除 \(toRemove.count) 个旧POI标注")
+            os_log("📍 [POIMap] 移除 %{public}d 个旧POI标注", log: poiMapLog, type: .info, toRemove.count)
+        }
+
+        // 添加新的POI标注
+        var addedCount = 0
+        for poi in explorablePOIs {
+            if !existingIds.contains(poi.id) {
+                // ⚠️ 注意：MKLocalSearch返回的坐标已经是Apple Maps坐标系(在中国为GCJ-02)
+                // 不需要再次进行坐标转换！直接使用原始坐标
+                let annotation = POIAnnotation(poi: poi)
+                mapView.addAnnotation(annotation)
+                addedCount += 1
+
+                // 打印每个添加的POI
+                os_log("✅ [POIMap] 添加POI: %{public}@ (%{public}.6f, %{public}.6f)",
+                       log: poiMapLog, type: .info,
+                       poi.name, poi.coordinate.latitude, poi.coordinate.longitude)
+                print("✅ [POIMap] 添加POI: \(poi.name) @ (\(poi.coordinate.latitude), \(poi.coordinate.longitude))")
+            }
+        }
+
+        if addedCount > 0 {
+            os_log("📍 [POIMap] 共添加 %{public}d 个新POI标注", log: poiMapLog, type: .info, addedCount)
+            print("📍 [POIMap] 共添加 \(addedCount) 个新POI标注")
+        }
+
+        // 打印地图上所有标注的总数
+        let totalAnnotations = mapView.annotations.count
+        let poiAnnotationsCount = mapView.annotations.compactMap { $0 as? POIAnnotation }.count
+        os_log("📍 [POIMap] 地图标注总数: %{public}d (其中POI: %{public}d)",
+               log: poiMapLog, type: .info, totalAnnotations, poiAnnotationsCount)
+        print("📍 [POIMap] 地图标注总数: \(totalAnnotations) (其中POI: \(poiAnnotationsCount))")
+
+        // 更新已搜刮状态（需要刷新视图）
+        for annotation in existingPOIAnnotations {
+            if let currentPOI = explorablePOIs.first(where: { $0.id == annotation.poi.id }),
+               currentPOI.isScavenged != annotation.poi.isScavenged {
+                // 状态变化，需要重新添加
+                mapView.removeAnnotation(annotation)
+                // 同样不需要坐标转换
+                let newAnnotation = POIAnnotation(poi: currentPOI)
+                mapView.addAnnotation(newAnnotation)
+                os_log("🔄 [POIMap] 更新POI状态: %{public}@ (已搜刮: %{public}@)",
+                       log: poiMapLog, type: .info, currentPOI.name, currentPOI.isScavenged ? "是" : "否")
+            }
+        }
+    }
+
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
@@ -207,15 +296,59 @@ struct MapViewRepresentable: UIViewRepresentable {
             // 例如：加载该区域的领地数据
         }
 
-        /// 自定义用户位置标注视图
+        /// 自定义标注视图
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             // 如果是用户位置，使用默认样式
             guard !(annotation is MKUserLocation) else {
                 return nil
             }
 
+            // 如果是POI标注
+            if let poiAnnotation = annotation as? POIAnnotation {
+                let identifier = "POIAnnotation"
+                var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+
+                if annotationView == nil {
+                    annotationView = MKMarkerAnnotationView(annotation: poiAnnotation, reuseIdentifier: identifier)
+                    annotationView?.canShowCallout = true
+                } else {
+                    annotationView?.annotation = poiAnnotation
+                }
+
+                // 根据POI类型和状态设置样式
+                let poi = poiAnnotation.poi
+
+                if poi.isScavenged {
+                    // 已搜刮：灰色
+                    annotationView?.markerTintColor = .gray
+                    annotationView?.glyphImage = UIImage(systemName: "checkmark")
+                    annotationView?.alpha = 0.5
+                } else {
+                    // 未搜刮：根据类型设置颜色
+                    annotationView?.markerTintColor = UIColor(poi.type.color)
+                    annotationView?.glyphImage = UIImage(systemName: poi.type.icon)
+                    annotationView?.alpha = 1.0
+                }
+
+                return annotationView
+            }
+
             // 其他标注可以在这里自定义
             return nil
+        }
+
+        /// POI标注点击事件
+        func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
+            if let poiAnnotation = view.annotation as? POIAnnotation {
+                let poi = poiAnnotation.poi
+                print("📍 点击POI: \(poi.name)")
+
+                // 取消选中状态
+                mapView.deselectAnnotation(poiAnnotation, animated: false)
+
+                // 调用回调
+                parent.onPOITapped?(poi)
+            }
         }
 
         /// 渲染 overlay（轨迹线和多边形）
