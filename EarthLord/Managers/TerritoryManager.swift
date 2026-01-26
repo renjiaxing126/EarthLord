@@ -152,6 +152,26 @@ class TerritoryManager {
 
         print("✅ 删除领地成功: \(territoryId)")
         TerritoryLogger.shared.log("删除领地成功", type: .success)
+
+        // 发送删除通知
+        NotificationCenter.default.post(name: .territoryDeleted, object: nil)
+    }
+
+    /// 更新领地名称
+    func updateTerritoryName(territoryId: String, name: String) async throws {
+        let updateData: [String: String] = ["name": name]
+
+        try await SupabaseService.shared
+            .from("territories")
+            .update(updateData)
+            .eq("id", value: territoryId)
+            .execute()
+
+        print("✅ 领地重命名成功: \(name)")
+        TerritoryLogger.shared.log("领地重命名成功: \(name)", type: .success)
+
+        // 发送更新通知
+        NotificationCenter.default.post(name: .territoryUpdated, object: nil)
     }
 
     /// 加载并缓存所有领地（用于碰撞检测）

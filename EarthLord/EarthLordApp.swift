@@ -15,6 +15,11 @@ struct EarthLordApp: App {
     /// App生命周期环境
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        // 触发 BuildingManager 初始化和模板加载
+        _ = BuildingManager.shared
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

@@ -12,6 +12,7 @@ import Supabase
 struct MapTabView: View {
     @StateObject private var locationManager = LocationManager.shared
     @StateObject private var explorationManager = ExplorationManager.shared
+    @StateObject private var buildingManager = BuildingManager.shared
     private let territoryManager = TerritoryManager.shared
     @EnvironmentObject var languageManager: LanguageManager
     @State private var showSpeedWarning = false
@@ -30,6 +31,9 @@ struct MapTabView: View {
     @State private var collisionWarning: String?
     @State private var showCollisionWarning = false
     @State private var collisionWarningLevel: WarningLevel = .safe
+
+    // MARK: - 建筑显示状态
+    @State private var buildingUpdateVersion = 0
 
     // MARK: - 探索功能状态
     @State private var showExplorationResult = false
@@ -57,7 +61,9 @@ struct MapTabView: View {
                         explorationManager.currentApproachingPOI = poi
                         explorationManager.showPOIPopup = true
                     }
-                }
+                },
+                playerBuildings: buildingManager.playerBuildings,
+                buildingUpdateVersion: buildingUpdateVersion
             )
             .ignoresSafeArea()
 
@@ -112,8 +118,8 @@ struct MapTabView: View {
                 Spacer()
             }
 
-            // 底部区域
-            VStack {
+            // 底部区域（紧贴Tab Bar上方）
+            VStack(spacing: 0) {
                 Spacer()
 
                 // 确认登记按钮（验证通过时显示在顶部）
@@ -122,6 +128,7 @@ struct MapTabView: View {
                         Spacer()
                         confirmButton
                             .padding(.trailing, 16)
+                            .padding(.bottom, 12)
                     }
                 }
 
@@ -129,12 +136,14 @@ struct MapTabView: View {
                 if explorationManager.isExploring {
                     explorationStatusPanel
                         .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .padding(.bottom, 8)
                 } else {
                     // 底部三按钮行：开始圈地 | 定位 | 探索
                     bottomButtonBar
+                        .padding(.bottom, 8)
                 }
             }
-            .padding(.bottom, 100) // 避开底部 Tab Bar
+            .padding(.bottom, 0) // 紧贴底部Tab Bar
             .animation(.easeInOut(duration: 0.3), value: explorationManager.isExploring)
 
             // 权限请求或错误提示
@@ -196,6 +205,17 @@ struct MapTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .triggerCollisionCheck)) { _ in
             // Day 19: 收到碰撞检测触发通知（定时器触发）
             performCollisionCheck()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .buildingUpdated)) { _ in
+            // 收到建筑更新通知，刷新地图上的建筑
+            buildingUpdateVersion += 1
+            Task {
+                await buildingManager.fetchAllPlayerBuildings()
+            }
+        }
+        .task {
+            // 加载所有玩家建筑
+            await buildingManager.fetchAllPlayerBuildings()
         }
         .sheet(isPresented: $showExplorationResult) {
             // 使用真实探索数据

@@ -264,4 +264,40 @@ class InventoryManager: ObservableObject {
     var itemTypeCount: Int {
         items.count
     }
+
+    // MARK: - Building System Support
+
+    /// 获取资源数量映射（用于建造检查）
+    /// - Returns: 物品ID到数量的映射
+    func getResourceCounts() async -> [String: Int] {
+        var counts: [String: Int] = [:]
+        for item in items {
+            counts[item.itemId] = (counts[item.itemId] ?? 0) + item.quantity
+        }
+        return counts
+    }
+
+    /// 扣除资源（用于建造消耗）
+    /// - Parameter resources: 需要扣除的资源映射 [物品ID: 数量]
+    /// - Returns: 是否成功扣除所有资源
+    func consumeResources(_ resources: [String: Int]) async -> Bool {
+        print("🔧 [InventoryManager] 扣除资源: \(resources)")
+
+        for (itemId, amount) in resources {
+            // 检查是否有足够数量
+            let currentCount = items.first { $0.itemId == itemId }?.quantity ?? 0
+            if currentCount < amount {
+                print("❌ [InventoryManager] 资源不足: \(itemId) 需要 \(amount), 实际 \(currentCount)")
+                return false
+            }
+        }
+
+        // 逐个扣除
+        for (itemId, amount) in resources {
+            await removeItem(itemId: itemId, quantity: amount)
+        }
+
+        print("✅ [InventoryManager] 资源扣除完成")
+        return true
+    }
 }

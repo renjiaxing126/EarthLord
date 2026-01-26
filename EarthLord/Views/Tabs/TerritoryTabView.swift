@@ -12,8 +12,14 @@ extension Notification.Name {
     /// 领地数据更新通知（上传/删除后发送）
     static let territoryUpdated = Notification.Name("territoryUpdated")
 
+    /// 领地删除通知
+    static let territoryDeleted = Notification.Name("territoryDeleted")
+
     /// Day 19: 触发碰撞检测通知（定时器触发）
     static let triggerCollisionCheck = Notification.Name("triggerCollisionCheck")
+
+    /// 建筑更新通知
+    static let buildingUpdated = Notification.Name("buildingUpdated")
 }
 
 struct TerritoryTabView: View {
