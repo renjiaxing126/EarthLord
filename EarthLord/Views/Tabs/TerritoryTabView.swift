@@ -20,6 +20,17 @@ extension Notification.Name {
 
     /// 建筑更新通知
     static let buildingUpdated = Notification.Name("buildingUpdated")
+
+    // MARK: - 交易系统通知
+
+    /// 交易挂单创建通知
+    static let tradeOfferCreated = Notification.Name("tradeOfferCreated")
+
+    /// 交易挂单取消通知
+    static let tradeOfferCancelled = Notification.Name("tradeOfferCancelled")
+
+    /// 交易完成通知
+    static let tradeCompleted = Notification.Name("tradeCompleted")
 }
 
 struct TerritoryTabView: View {

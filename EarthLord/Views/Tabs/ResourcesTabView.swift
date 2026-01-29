@@ -117,8 +117,8 @@ struct ResourcesTabView: View {
             placeholderView(title: "我的领地", icon: "map.fill")
 
         case .trade:
-            // 交易页面（占位）
-            placeholderView(title: "交易市场", icon: "dollarsign.circle.fill")
+            // 交易页面
+            TradeTabView()
         }
     }
 
