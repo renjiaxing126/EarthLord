@@ -7,6 +7,42 @@
 //
 
 import Foundation
+import SwiftUI
+
+// MARK: - 消息分类（官方频道）
+enum MessageCategory: String, Codable, CaseIterable {
+    case survival = "survival"
+    case news = "news"
+    case mission = "mission"
+    case alert = "alert"
+
+    var displayName: String {
+        switch self {
+        case .survival: return "生存指南"
+        case .news: return "游戏资讯"
+        case .mission: return "任务公告"
+        case .alert: return "紧急广播"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .survival: return ApocalypseTheme.success
+        case .news: return ApocalypseTheme.info
+        case .mission: return ApocalypseTheme.warning
+        case .alert: return ApocalypseTheme.danger
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .survival: return "leaf.fill"
+        case .news: return "newspaper.fill"
+        case .mission: return "flag.fill"
+        case .alert: return "exclamationmark.triangle.fill"
+        }
+    }
+}
 
 // MARK: - 设备类型
 enum DeviceType: String, Codable, CaseIterable {
@@ -168,9 +204,9 @@ enum ChannelType: String, Codable, CaseIterable {
 }
 
 // MARK: - 频道模型
-struct CommunicationChannel: Codable, Identifiable {
+struct CommunicationChannel: Codable, Identifiable, Hashable {
     let id: UUID
-    let creatorId: UUID
+    let creatorId: UUID?  // 官方频道无创建者
     let channelType: ChannelType
     let channelCode: String
     let name: String
@@ -191,6 +227,15 @@ struct CommunicationChannel: Codable, Identifiable {
         case memberCount = "member_count"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+    }
+
+    // MARK: - Hashable（仅基于 id）
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    static func == (lhs: CommunicationChannel, rhs: CommunicationChannel) -> Bool {
+        lhs.id == rhs.id
     }
 }
 
@@ -217,4 +262,162 @@ struct SubscribedChannel: Identifiable {
     let subscription: ChannelSubscription
 
     var id: UUID { channel.id }
+}
+
+// MARK: - 消息位置点
+struct LocationPoint: Codable {
+    let latitude: Double
+    let longitude: Double
+
+    /// 从 PostGIS WKT 格式解析位置，例如 "POINT(经度 纬度)"
+    static func fromPostGIS(_ wkt: String) -> LocationPoint? {
+        // 匹配 POINT(lon lat) 或 SRID=4326;POINT(lon lat)
+        let pattern = #"POINT\s*\(\s*([-+]?\d*\.?\d+)\s+([-+]?\d*\.?\d+)\s*\)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: wkt, range: NSRange(wkt.startIndex..., in: wkt)),
+              let lonRange = Range(match.range(at: 1), in: wkt),
+              let latRange = Range(match.range(at: 2), in: wkt),
+              let longitude = Double(wkt[lonRange]),
+              let latitude = Double(wkt[latRange]) else {
+            return nil
+        }
+        return LocationPoint(latitude: latitude, longitude: longitude)
+    }
+}
+
+// MARK: - 消息元数据
+struct MessageMetadata: Codable {
+    let deviceType: String?
+    let category: String?  // 消息分类（官方频道使用）
+
+    enum CodingKeys: String, CodingKey {
+        case deviceType = "device_type"
+        case category
+    }
+}
+
+// MARK: - 频道消息
+struct ChannelMessage: Identifiable, Decodable {
+    let messageId: UUID
+    let channelId: UUID
+    let senderId: UUID?
+    let senderCallsign: String?
+    let content: String
+    let senderLocation: LocationPoint?
+    let metadata: MessageMetadata?
+    let createdAt: Date
+
+    var id: UUID { messageId }
+
+    /// 设备类型（从 metadata 提取）
+    var deviceType: String? {
+        metadata?.deviceType
+    }
+
+    /// 消息分类（从 metadata 提取，用于官方频道）
+    var category: MessageCategory? {
+        guard let categoryString = metadata?.category else { return nil }
+        return MessageCategory(rawValue: categoryString)
+    }
+
+    /// 人类可读的时间差
+    var timeAgo: String {
+        let now = Date()
+        let diff = now.timeIntervalSince(createdAt)
+        if diff < 60 {
+            return "刚刚"
+        } else if diff < 3600 {
+            let minutes = Int(diff / 60)
+            return "\(minutes)分钟前"
+        } else if diff < 86400 {
+            let hours = Int(diff / 3600)
+            return "\(hours)小时前"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MM-dd HH:mm"
+            return formatter.string(from: createdAt)
+        }
+    }
+
+    // MARK: - 自定义解码
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        messageId = try container.decode(UUID.self, forKey: .messageId)
+        channelId = try container.decode(UUID.self, forKey: .channelId)
+        senderId = try container.decodeIfPresent(UUID.self, forKey: .senderId)
+        senderCallsign = try container.decodeIfPresent(String.self, forKey: .senderCallsign)
+        content = try container.decode(String.self, forKey: .content)
+        metadata = try container.decodeIfPresent(MessageMetadata.self, forKey: .metadata)
+
+        // senderLocation: 先尝试 String (PostGIS WKT)，失败则直接解码为 LocationPoint
+        if let wktString = try? container.decode(String.self, forKey: .senderLocation) {
+            senderLocation = LocationPoint.fromPostGIS(wktString)
+        } else {
+            senderLocation = try container.decodeIfPresent(LocationPoint.self, forKey: .senderLocation)
+        }
+
+        // createdAt: 先尝试 String 多格式解析，失败则直接解码为 Date
+        if let dateString = try? container.decode(String.self, forKey: .createdAt) {
+            guard let parsed = ChannelMessage.parseDate(dateString) else {
+                throw DecodingError.dataCorruptedError(forKey: .createdAt, in: container, debugDescription: "无法解析日期: \(dateString)")
+            }
+            createdAt = parsed
+        } else {
+            createdAt = try container.decode(Date.self, forKey: .createdAt)
+        }
+    }
+
+    /// 支持多种日期格式
+    private static func parseDate(_ string: String) -> Date? {
+        let formatters: [DateFormatter] = {
+            let iso = DateFormatter()
+            iso.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSSX"
+            iso.locale = Locale(identifier: "en_US_POSIX")
+            iso.timeZone = TimeZone(identifier: "UTC")
+
+            let isoShort = DateFormatter()
+            isoShort.dateFormat = "yyyy-MM-dd'T'HH:mm:ssX"
+            isoShort.locale = Locale(identifier: "en_US_POSIX")
+            isoShort.timeZone = TimeZone(identifier: "UTC")
+
+            let isoZ = DateFormatter()
+            isoZ.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+            isoZ.locale = Locale(identifier: "en_US_POSIX")
+            isoZ.timeZone = TimeZone(identifier: "UTC")
+
+            let plain = DateFormatter()
+            plain.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+            plain.locale = Locale(identifier: "en_US_POSIX")
+            plain.timeZone = TimeZone(identifier: "UTC")
+
+            return [iso, isoShort, isoZ, plain]
+        }()
+
+        for formatter in formatters {
+            if let date = formatter.date(from: string) {
+                return date
+            }
+        }
+        // 兜底：ISO8601DateFormatter
+        let iso8601 = ISO8601DateFormatter()
+        iso8601.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = iso8601.date(from: string) {
+            return date
+        }
+        iso8601.formatOptions = [.withInternetDateTime]
+        return iso8601.date(from: string)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case messageId = "message_id"
+        case channelId = "channel_id"
+        case senderId = "sender_id"
+        case senderCallsign = "sender_callsign"
+        case content
+        case senderLocation = "sender_location"
+        case metadata
+        case createdAt = "created_at"
+    }
 }

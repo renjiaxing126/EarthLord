@@ -102,6 +102,7 @@ struct CommunicationTabView: View {
                let userId = UUID(uuidString: userIdStr) {
                 Task {
                     await communicationManager.loadDevices(userId: userId)
+                    await communicationManager.ensureOfficialChannelSubscribed(userId: userId)
                 }
             }
         }

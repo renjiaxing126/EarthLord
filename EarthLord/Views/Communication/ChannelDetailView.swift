@@ -176,6 +176,22 @@ struct ChannelDetailView: View {
 
     private var actionSection: some View {
         VStack(spacing: 12) {
+            // 进入聊天按钮 — 所有订阅者均可见
+            if isSubscribed || isCreator {
+                NavigationLink(destination: ChannelChatView(channel: channel).environmentObject(authManager)) {
+                    HStack {
+                        Image(systemName: "bubble.right.fill")
+                        Text("进入频道聊天")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(ApocalypseTheme.info)
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+                }
+            }
+
             if !isCreator {
                 // 非创建者：订阅/取消订阅按钮
                 if isSubscribed {

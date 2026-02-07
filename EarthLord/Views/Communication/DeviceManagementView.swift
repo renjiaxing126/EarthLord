@@ -14,6 +14,7 @@ struct DeviceManagementView: View {
     @EnvironmentObject var authManager: AuthManager
     @State private var showUnlockAlert = false
     @State private var selectedDeviceForUnlock: DeviceType?
+    @State private var showingCallsignSettings = false
 
     var body: some View {
         ScrollView {
@@ -30,6 +31,9 @@ struct DeviceManagementView: View {
                         .foregroundColor(ApocalypseTheme.textSecondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+                // 呼号设置入口
+                callsignSettingsButton
 
                 // 当前设备卡片
                 if let current = communicationManager.currentDevice {
@@ -57,6 +61,50 @@ struct DeviceManagementView: View {
             if let device = selectedDeviceForUnlock {
                 Text(device.unlockRequirement)
             }
+        }
+        .sheet(isPresented: $showingCallsignSettings) {
+            CallsignSettingsSheet()
+                .environmentObject(authManager)
+        }
+    }
+
+    // MARK: - 呼号设置按钮
+
+    private var callsignSettingsButton: some View {
+        Button(action: {
+            showingCallsignSettings = true
+        }) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(ApocalypseTheme.info.opacity(0.2))
+                        .frame(width: 44, height: 44)
+
+                    Image(systemName: "person.wave.2.fill")
+                        .font(.system(size: 18))
+                        .foregroundColor(ApocalypseTheme.info)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("呼号设置")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(ApocalypseTheme.textPrimary)
+
+                    Text("设置你的无线电呼号")
+                        .font(.caption)
+                        .foregroundColor(ApocalypseTheme.textSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14))
+                    .foregroundColor(ApocalypseTheme.textMuted)
+            }
+            .padding(12)
+            .background(ApocalypseTheme.cardBackground)
+            .cornerRadius(12)
         }
     }
 
