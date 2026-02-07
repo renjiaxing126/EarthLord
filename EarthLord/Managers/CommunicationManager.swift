@@ -512,16 +512,16 @@ final class CommunicationManager: ObservableObject {
         }
     }
 
-    /// 获取当前用户位置
-    /// ⚠️ Day 35-A: 临时返回假数据，用于测试算法逻辑
-    /// ⚠️ Day 35-B: 会替换为真实 GPS 位置
+    /// 获取当前用户位置（从 LocationManager 获取真实 GPS）
     private func getCurrentLocation() -> LocationPoint? {
-        // TODO: Day 35-B 会替换为:
-        // guard let location = LocationManager.shared.userLocation else { return nil }
-        // return LocationPoint(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
-
-        // 临时返回北京坐标（仅用于编译通过和逻辑测试）
-        return LocationPoint(latitude: 39.9042, longitude: 116.4074)
+        guard let location = LocationManager.shared.userLocation else {
+            print("⚠️ [距离过滤] LocationManager 无位置数据")
+            return nil
+        }
+        return LocationPoint(
+            latitude: location.coordinate.latitude,
+            longitude: location.coordinate.longitude
+        )
     }
 
     /// 判断当前用户是否应该收到该消息（设备矩阵 + 距离过滤）
